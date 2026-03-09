@@ -18,45 +18,47 @@ function VideoCard({ video, isShort = false }) {
   // 👤 The Quota-Saving PFP Hack (Now using real PFP if available)
   const channelPfp = video.channelThumbnail || `https://ui-avatars.com/api/?name=${encodeURIComponent(channelTitle)}&background=333&color=fff&rounded=true`;
 
+  const s = styles(isShort);
+
   return (
-    <div style={styles.cardContainer}>
+    <div style={s.cardContainer}>
       
       {/* THUMBNAIL SECTION */}
-      <Link to={isShort ? `/shorts/${videoId}` : `/video/${videoId}`} style={styles.thumbLink}>
-        <div style={styles.thumbWrapper}>
-          <img src={thumbnails?.high?.url || thumbnails?.medium?.url} alt={title} style={styles.img} />
+      <Link to={isShort ? `/shorts/${videoId}` : `/video/${videoId}`} style={s.thumbLink}>
+        <div style={s.thumbWrapper}>
+          <img src={thumbnails?.high?.url || thumbnails?.medium?.url} alt={title} style={s.img} />
           
-          <div style={styles.durationBadge}>{duration}</div>
+          <div style={s.durationBadge}>{duration}</div>
           
           {/* Small YouTube Logo in the corner */}
-          <div style={styles.ytBadge}>
+          <div style={s.ytBadge}>
             <Youtube size={16} color="white" fill="#ff0000" />
           </div>
         </div>
       </Link>
 
       {/* DATA SECTION */}
-      <div style={styles.infoRow}>
+      <div style={s.infoRow}>
         
         {/* Clickable Channel PFP */}
-        <Link to={`/channel/${channelId}`} style={styles.pfpLink}>
-          <img src={channelPfp} alt={channelTitle} style={styles.pfp} />
+        <Link to={`/channel/${channelId}`} style={s.pfpLink}>
+          <img src={channelPfp} alt={channelTitle} style={s.pfp} />
         </Link>
 
-        <div style={styles.metaCol}>
+        <div style={s.metaCol}>
           {/* Clickable Title */}
-          <Link to={isShort ? `/shorts/${videoId}` : `/video/${videoId}`} style={styles.titleLink}>
-            <h3 style={styles.title}>{title}</h3>
+          <Link to={isShort ? `/shorts/${videoId}` : `/video/${videoId}`} style={s.titleLink}>
+            <h3 style={s.title}>{title}</h3>
           </Link>
 
           {/* Meta Data: Name • Views • Date */}
-          <div style={styles.metaData}>
-            <Link to={`/channel/${channelId}`} style={styles.channelLink}>
+          <div style={s.metaData}>
+            <Link to={`/channel/${channelId}`} style={s.channelLink}>
               {channelTitle}
             </Link>
-            <span style={styles.dot}>•</span>
+            <span style={s.dot}>•</span>
             <span>{formattedViews} views</span>
-            <span style={styles.dot}>•</span>
+            <span style={s.dot}>•</span>
             <span>{formattedDate}</span>
           </div>
         </div>
@@ -66,10 +68,16 @@ function VideoCard({ video, isShort = false }) {
   );
 }
 
-const styles = {
+const styles = (isShort) => ({
   cardContainer: { display: "flex", flexDirection: "column", gap: "12px", width: "100%", transition: "opacity 0.2s" },
   thumbLink: { textDecoration: "none" },
-  thumbWrapper: { position: "relative", aspectRatio: "16/9", borderRadius: "12px", overflow: "hidden", background: "#222" },
+  thumbWrapper: { 
+    position: "relative", 
+    aspectRatio: isShort ? "9/16" : "16/9", 
+    borderRadius: "12px", 
+    overflow: "hidden", 
+    background: "#222" 
+  },
   img: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.2s" },
   durationBadge: { position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.85)", color: "white", padding: "4px 6px", borderRadius: "6px", fontSize: "12px", fontWeight: "bold" },
   ytBadge: { position: "absolute", top: "8px", right: "8px", background: "rgba(0,0,0,0.6)", padding: "4px", borderRadius: "6px", display: "flex", backdropFilter: "blur(4px)" },
@@ -82,6 +90,6 @@ const styles = {
   metaData: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px", fontSize: "13px", color: "#aaa", fontWeight: "500" },
   channelLink: { color: "#aaa", textDecoration: "none", transition: "color 0.2s" },
   dot: { margin: "0 4px", fontSize: "10px", opacity: 0.5 }
-};
+});
 
 export default VideoCard;
