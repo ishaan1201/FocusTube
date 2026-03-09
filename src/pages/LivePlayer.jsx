@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { ThumbsUp, Share2, Plus, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { fetchVideoDetails, fetchChannelDetails, updateWatchHistory } from "../services/youtube";
 import NotesPanel from "../components/addons/NotesPanel";
-import LiveChat from "../components/LiveChat"; // ✅ Import Chat
+import LiveChat from "../components/addons/LiveChat"; // ✅ Import Chat
 
 function LivePlayer() {
   const { id } = useParams();
