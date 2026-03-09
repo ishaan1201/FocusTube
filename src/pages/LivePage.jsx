@@ -3,37 +3,38 @@ import { Link } from "react-router-dom";
 import { fetchSearchVideos, fetchVideoDetailsBatch } from "../services/youtube";
 import { Radio, RefreshCw, Search } from "lucide-react";
 
-const LIVE_CATEGORIES = ["All", "News", "Technology", "Coding", "Science", "Nature", "Space"];
+// 🚨 STRICT FOCUS CATEGORIES
+const LIVE_CATEGORIES = ["All", "News", "Trading", "Coding", "Science", "Tech News", "Study & Build"];
 
 function LivePage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [localSearch, setLocalSearch] = useState("");
-  const [triggerSearch, setTriggerSearch] = useState("");
+  const [triggerSearch, setTriggerSearch] = useState(""); 
 
   const loadLiveStreams = async () => {
     setLoading(true);
     try {
-      // 🧠 STEP 1: Broad query for educational/news live content
-      let query = activeCategory === "All" 
-        ? "news live | technology live | coding live" 
-        : `${activeCategory} live`;
-      
-      if (triggerSearch) {
-        query = `${triggerSearch} live`;
+      // 🧠 Map the category to highly specific YouTube queries
+      let baseQuery = "";
+      if (activeCategory === "All") {
+        baseQuery = "news | technology | coding | trading | study with me";
+      } else if (activeCategory === "Study & Build") {
+        baseQuery = "study with me | productivity | DIY tech | arduino | tinkering";
+      } else {
+        baseQuery = activeCategory;
       }
 
-      // ✅ We explicitly pass 'live' to ensure we only get active broadcasts
-      const searchData = await fetchSearchVideos(query, "", "any", "live");
+      let finalQuery = triggerSearch ? `${baseQuery} ${triggerSearch} live` : `${baseQuery} live stream`;
+
+      const searchData = await fetchSearchVideos(finalQuery, "", "any", "live");
       const items = searchData.items || [];
 
       if (items.length > 0) {
-        // 🧠 STEP 2: Search items don't have viewCount. We must fetch detail data for these IDs.
         const videoIds = items.map(v => v.id.videoId).join(",");
         const detailsData = await fetchVideoDetailsBatch(videoIds);
 
-        // Merge the live data (concurrentViewers) with search snippets
         const merged = items.map(item => {
           const details = detailsData.find(d => d.id === item.id.videoId);
           return {
@@ -43,6 +44,8 @@ function LivePage() {
           };
         });
         setVideos(merged);
+      } else {
+        setVideos([]);
       }
     } catch (error) {
       console.error("Live Fetch Error:", error);
@@ -61,7 +64,7 @@ function LivePage() {
           <Radio size={32} color="#ff4444" style={styles.liveIcon} />
           <div>
             <h1 style={styles.title}>Live Dashboard</h1>
-            <p style={{ color: "#aaa" }}>Real-time News, Markets, Tech, and Science.</p>
+            <p style={{ color: "#aaa" }}>Real-time News, Markets, Tech, and Study Sessions.</p>
           </div>
         </div>
         <button onClick={loadLiveStreams} style={styles.refreshBtn}>
