@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { fetchSearchVideos, fetchVideoDetailsBatch } from "../services/youtube";
 import { Radio, RefreshCw, Search } from "lucide-react";
+import useInfiniteScroll from "../hooks/useInfiniteScroll";
 
 // 🚨 STRICT FOCUS CATEGORIES
 const LIVE_CATEGORIES = ["All", "Study", "News", "Trading", "Coding", "Science", "Tech News"];
@@ -12,9 +13,11 @@ function LivePage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [localSearch, setLocalSearch] = useState("");
   const [triggerSearch, setTriggerSearch] = useState(""); 
+  const [nextPageToken, setNextPageToken] = useState("");
 
-  const loadLiveStreams = async () => {
-    setLoading(true);
+  const loadLiveStreams = async (isLoadMore = false) => {
+    if (!isLoadMore) setLoading(true);
+    
     try {
       // 🧠 Map the category to highly specific YouTube queries
       let baseQuery = "";
@@ -28,8 +31,9 @@ function LivePage() {
 
       let finalQuery = triggerSearch ? `${baseQuery} ${triggerSearch} live` : `${baseQuery} live stream`;
 
-      const searchData = await fetchSearchVideos(finalQuery, "", "any", "live");
+      const searchData = await fetchSearchVideos(finalQuery, isLoadMore ? nextPageToken : "", "any", "live");
       const items = searchData.items || [];
+      setNextPageToken(searchData.nextPageToken || "");
 
       if (items.length > 0) {
         const videoIds = items.map(v => v.id.videoId).join(",");
@@ -43,8 +47,9 @@ function LivePage() {
             statistics: details?.statistics || {}
           };
         });
-        setVideos(merged);
-      } else {
+        
+        setVideos(prev => isLoadMore ? [...prev, ...merged] : merged);
+      } else if (!isLoadMore) {
         setVideos([]);
       }
     } catch (error) {
@@ -53,7 +58,17 @@ function LivePage() {
     setLoading(false);
   };
 
+  // 🖱️ Infinite Scroll Trigger
+  const handleLoadMore = useCallback(async () => {
+    if (nextPageToken) {
+      await loadLiveStreams(true);
+    }
+  }, [nextPageToken, activeCategory, triggerSearch]);
+
+  const [isFetching] = useInfiniteScroll(handleLoadMore);
+
   useEffect(() => {
+    setNextPageToken("");
     loadLiveStreams();
   }, [activeCategory, triggerSearch]);
 
@@ -67,7 +82,7 @@ function LivePage() {
             <p style={{ color: "#aaa" }}>Real-time News, Markets, Tech, and Study Sessions.</p>
           </div>
         </div>
-        <button onClick={loadLiveStreams} style={styles.refreshBtn}>
+        <button onClick={() => loadLiveStreams()} style={styles.refreshBtn}>
           <RefreshCw size={18} /> Refresh
         </button>
       </div>
@@ -107,41 +122,50 @@ function LivePage() {
         </button>
       </div>
 
-      {loading ? (
+      {loading && videos.length === 0 ? (
         <p style={styles.statusMsg}>Scanning live frequencies...</p>
       ) : videos.length === 0 ? (
         <div style={styles.emptyState}>
           <p>No active streams found matching your focus filters.</p>
-          <button onClick={loadLiveStreams} style={styles.retryBtn}>Try Again</button>
+          <button onClick={() => loadLiveStreams()} style={styles.retryBtn}>Try Again</button>
         </div>
       ) : (
-        <div style={styles.grid}>
-          {videos.map((video) => {
-            // ✅ concurrentViewers is the correct metric for LIVE videos
-            const viewers = video.liveStreamingDetails?.concurrentViewers;
+        <>
+          <div style={styles.grid}>
+            {videos.map((video) => {
+              // ✅ concurrentViewers is the correct metric for LIVE videos
+              const viewers = video.liveStreamingDetails?.concurrentViewers;
 
-            return (
-              <Link to={`/live/${video.id.videoId}`} key={video.id.videoId} style={styles.card}>
-                <div style={styles.thumbWrapper}>
-                  <img src={video.snippet.thumbnails.high?.url} style={styles.img} alt="Live thumb" />
+              return (
+                <Link to={`/live/${video.id.videoId}`} key={video.id.videoId} style={styles.card}>
+                  <div style={styles.thumbWrapper}>
+                    <img src={video.snippet.thumbnails.high?.url} style={styles.img} alt="Live thumb" />
 
-                  <div style={styles.liveBadge}>
-                    <div style={styles.dot}></div> LIVE
+                    <div style={styles.liveBadge}>
+                      <div style={styles.dot}></div> LIVE
+                    </div>
+
+                    {viewers && (
+                      <div style={styles.viewBadge}>
+                        {Number(viewers).toLocaleString()} watching
+                      </div>
+                    )}
                   </div>
 
-                  {viewers && (
-                    <div style={styles.viewBadge}>
-                      {Number(viewers).toLocaleString()} watching
-                    </div>
-                  )}
-                </div>
-
-                <h3 style={styles.cardTitle}>{video.snippet.title}</h3>
-                <p style={styles.channel}>{video.snippet.channelTitle}</p>
-              </Link>
-            );
-          })}
-        </div>
+                  <h3 style={styles.cardTitle}>{video.snippet.title}</h3>
+                  <p style={styles.channel}>{video.snippet.channelTitle}</p>
+                </Link>
+              );
+            })}
+          </div>
+          
+          {isFetching && (
+             <div style={{ textAlign: "center", padding: "40px", color: "#aaa" }}>
+               <RefreshCw size={24} style={{ animation: "spin 2s linear infinite" }} />
+               <p>Fetching more live content...</p>
+             </div>
+          )}
+        </>
       )}
     </div>
   );
