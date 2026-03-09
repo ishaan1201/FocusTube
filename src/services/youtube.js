@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { jsPDF } from "jspdf";
+import { getUserPreferences } from '../utils/localization';
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 const BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -154,14 +155,22 @@ export const fetchTrendingVideos = async (token = '', categoryId = '0') => {
 
 export const fetchSearchVideos = async (query, token = '', duration = 'any', eventType = null) => {
   try {
+    // 🧠 Automatically detect the user's system language and country
+    const { langCode, regionCode, langName } = getUserPreferences();
+
+    // 🛡️ THE DYNAMIC LOCK: Force the algorithm using their specific language
+    const strictQuery = `${query} (${langName})`;
+
     const params = {
       part: 'snippet',
-      q: query,
+      q: strictQuery,
       maxResults: 40,
       type: 'video',
       pageToken: token,
       key: API_KEY,
-      safeSearch: "moderate"
+      safeSearch: "moderate",
+      regionCode: regionCode,          // Automatically injects their country code (e.g., "IN")
+      relevanceLanguage: langCode      // Automatically injects their language code (e.g., "en" or "hi")
     };
 
     if (eventType) params.eventType = eventType;
