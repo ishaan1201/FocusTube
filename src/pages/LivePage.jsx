@@ -21,7 +21,7 @@ function LivePage() {
       if (activeCategory === "All") {
         baseQuery = "news | technology | coding | trading | study with me";
       } else if (activeCategory === "Study") {
-        baseQuery = "study with me | deep work | focus music | lofi study | exam prep";
+        baseQuery = "(study with me | deep work | exam prep) -lofi -music -radio";
       } else {
         baseQuery = activeCategory;
       }
