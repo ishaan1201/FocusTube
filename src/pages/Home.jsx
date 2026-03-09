@@ -71,7 +71,12 @@ function Home({ query }) {
 }
 
 const styles = {
-  container: { padding: "24px" },
+  container: { 
+    padding: "24px",
+    maxWidth: "100vw",          // 👈 Prevents it from being wider than the screen
+    overflowX: "hidden",        // 👈 Kills the global horizontal scrollbar
+    boxSizing: "border-box"     // 👈 Makes sure padding doesn't add extra width
+  },
   pageTitle: { fontSize: "24px", marginBottom: "20px", fontWeight: "bold", color: "white" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" },
   loadingText: { textAlign: "center", padding: "20px", color: "#666", marginTop: "20px" }
