@@ -174,15 +174,23 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
 
     const details = await fetchVideoDetailsBatch(videoIds);
 
+    // 🧠 THE UPGRADE: Extract unique channel IDs and fetch their real PFPs in one batch
+    const uniqueChannelIds = [...new Set(res.data.items.map(v => v.snippet.channelId))].filter(Boolean);
+    const channelsData = await fetchChannelsByIds(uniqueChannelIds);
+
     const items = res.data.items.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
+      const channelMatch = channelsData.find(c => c.id === item.snippet.channelId);
+
       return {
         ...item,
         contentDetails: detail?.contentDetails,
         statistics: detail?.statistics,
         liveStreamingDetails: detail?.liveStreamingDetails,
         duration: formatDuration(detail?.contentDetails?.duration),
-        views: detail?.statistics?.viewCount
+        views: detail?.statistics?.viewCount,
+        // Inject the real PFP URL straight into the video object
+        channelThumbnail: channelMatch?.snippet?.thumbnails?.default?.url 
       };
     });
 
