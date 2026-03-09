@@ -62,7 +62,7 @@ function Header({ toggleSidebar, onSearch, timer }) {
       <form onSubmit={handleSearchSubmit} style={styles.searchContainer}>
         <input
           type="text"
-          placeholder="Search for focused content..."
+          placeholder="Powered by YouTube"
           style={styles.searchInput}
           value={input}
           onChange={(e) => setInput(e.target.value)}
