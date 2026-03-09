@@ -1,17 +1,28 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { fetchSearchVideos, fetchVideoDetailsBatch } from "../services/youtube";
-import { Radio, RefreshCw } from "lucide-react";
+import { Radio, RefreshCw, Search } from "lucide-react";
+
+const LIVE_CATEGORIES = ["All", "News", "Technology", "Coding", "Science", "Nature", "Space"];
 
 function LivePage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [localSearch, setLocalSearch] = useState("");
+  const [triggerSearch, setTriggerSearch] = useState("");
 
   const loadLiveStreams = async () => {
     setLoading(true);
     try {
       // 🧠 STEP 1: Broad query for educational/news live content
-      const query = "news live | technology live | coding live";
+      let query = activeCategory === "All" 
+        ? "news live | technology live | coding live" 
+        : `${activeCategory} live`;
+      
+      if (triggerSearch) {
+        query = `${triggerSearch} live`;
+      }
 
       // ✅ We explicitly pass 'live' to ensure we only get active broadcasts
       const searchData = await fetchSearchVideos(query, "", "any", "live");
@@ -41,7 +52,7 @@ function LivePage() {
 
   useEffect(() => {
     loadLiveStreams();
-  }, []);
+  }, [activeCategory, triggerSearch]);
 
   return (
     <div style={styles.container}>
@@ -55,6 +66,41 @@ function LivePage() {
         </div>
         <button onClick={loadLiveStreams} style={styles.refreshBtn}>
           <RefreshCw size={18} /> Refresh
+        </button>
+      </div>
+
+      {/* 🧭 STICKY CATEGORY NAV */}
+      <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "15px", marginBottom: "20px", scrollbarWidth: "none" }}>
+        {LIVE_CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => { setActiveCategory(cat); setTriggerSearch(""); setLocalSearch(""); }}
+            style={{
+              padding: "8px 16px", borderRadius: "20px", border: "none", fontWeight: "bold", cursor: "pointer", whiteSpace: "nowrap",
+              background: activeCategory === cat ? "#ff4444" : "#222",
+              color: activeCategory === cat ? "white" : "#aaa"
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* 🔍 LOCAL IN-PAGE SEARCH */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "30px", maxWidth: "600px" }}>
+        <input 
+          type="text" 
+          placeholder={`Search live ${activeCategory === "All" ? "streams" : activeCategory}...`}
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && setTriggerSearch(localSearch)}
+          style={{ flex: 1, padding: "10px 16px", borderRadius: "12px", border: "1px solid #333", background: "#111", color: "white", outline: "none" }}
+        />
+        <button 
+          onClick={() => setTriggerSearch(localSearch)}
+          style={{ padding: "10px 20px", borderRadius: "12px", border: "none", background: "#333", color: "white", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}
+        >
+          <Search size={16} /> Search
         </button>
       </div>
 
