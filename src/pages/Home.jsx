@@ -1,20 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { fetchSearchVideos } from "../services/youtube";
-import useInfiniteScroll from "../hooks/useInfiniteScroll"; // ✅ Import Hook
-import { Play } from "lucide-react";
+import useInfiniteScroll from "../hooks/useInfiniteScroll";
+import VideoCard from "../components/VideoCard"; // 👈 MASSIVE UPGRADE: Importing the new component
+import ShortsSection from "../components/ShortsSection";
 
 function Home({ query }) {
   const [videos, setVideos] = useState([]);
-  const [pageToken, setPageToken] = useState(""); // 🔄 Track pagination
+  const [pageToken, setPageToken] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 1️⃣ Initial Load
+  // 1️⃣ Initial Load & Global Search Listener
   useEffect(() => {
     const loadVideos = async () => {
       setLoading(true);
-      // If user typed in search bar, use that. Otherwise use defaults.
-      const search = query || "science|technology|coding|documentary|history|math";
+      
+      // 🛡️ The Architect's Filter: If they search globally, we append study terms to keep it focused.
+      const search = query ? `${query} tutorial | documentary | course` : "science|technology|coding|documentary|history|math";
       
       // Reset page token for new searches
       const data = await fetchSearchVideos(search, ""); 
@@ -25,13 +26,13 @@ function Home({ query }) {
     };
 
     loadVideos();
-  }, [query]); 
+  }, [query]); // <--- This array makes the page reload instantly when you search
 
   // 2️⃣ Infinite Scroll Logic
   const fetchMore = useCallback(async () => {
     if (!pageToken) return;
 
-    const search = query || "science|technology|coding|documentary|history|math";
+    const search = query ? `${query} tutorial | documentary | course` : "science|technology|coding|documentary|history|math";
     const data = await fetchSearchVideos(search, pageToken);
     
     // Append new videos to existing list
@@ -44,25 +45,20 @@ function Home({ query }) {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.pageTitle}>Top Picks for Learning</h1>
+      
+      {/* Dynamic Title based on Search */}
+      <h1 style={styles.pageTitle}>
+        {query ? `Search Results: "${query}"` : "Top Picks for Learning"}
+      </h1>
+
+      {/* 🚀 INJECT THE SHORTS SHELF HERE */}
+      {/* We use !query so the shorts shelf disappears when you search for something specific */}
+      {!query && <ShortsSection />}
       
       <div style={styles.grid}>
-        {videos.map((video) => (
-          <Link to={`/video/${video.id.videoId}`} key={video.id.videoId} style={styles.card}>
-            <div style={styles.thumbnailWrapper}>
-              <img 
-                src={video.snippet.thumbnails.high.url} 
-                style={styles.img} 
-                alt={video.snippet.title} 
-              />
-              {/* ✅ REAL DURATION DISPLAY */}
-              <div style={styles.badge}>
-                {video.duration || "0:00"}
-              </div>
-            </div>
-            <h3 style={styles.title}>{video.snippet.title}</h3>
-            <p style={styles.channel}>{video.snippet.channelTitle}</p>
-          </Link>
+        {videos.map((video, idx) => (
+          // 👈 RIP OUT THE OLD CODE: We just pass the data to the VideoCard now!
+          <VideoCard key={`${video.id.videoId || video.id}-${idx}`} video={video} />
         ))}
       </div>
 
@@ -77,25 +73,7 @@ function Home({ query }) {
 const styles = {
   container: { padding: "24px" },
   pageTitle: { fontSize: "24px", marginBottom: "20px", fontWeight: "bold", color: "white" },
-  
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" },
-  
-  card: { textDecoration: "none", color: "white", display: "flex", flexDirection: "column", gap: "10px" },
-  
-  thumbnailWrapper: { position: "relative", aspectRatio: "16/9", borderRadius: "12px", overflow: "hidden", background: "#222" },
-  img: { width: "100%", height: "100%", objectFit: "cover" },
-  
-  // ✅ Duration Badge Style
-  badge: { 
-    position: "absolute", bottom: "8px", right: "8px", 
-    background: "rgba(0,0,0,0.85)", color: "white", 
-    padding: "4px 8px", borderRadius: "6px", 
-    fontSize: "12px", fontWeight: "bold" 
-  },
-  
-  title: { fontSize: "15px", fontWeight: "600", margin: "0", lineHeight: "1.4", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-  channel: { fontSize: "12px", color: "#aaa", margin: 0 },
-  
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" },
   loadingText: { textAlign: "center", padding: "20px", color: "#666", marginTop: "20px" }
 };
 
