@@ -6,7 +6,7 @@ import {
   RotateCcw, FileText, Save, Sparkles, Send, Bot, Maximize, Minimize, ArrowLeft, Trash2
 } from "lucide-react";
 import { fetchVideoDetails, fetchChannelDetails } from "../services/youtube";
-import { addToHistory, toggleVault, isInVault, saveNote, getNoteForVideo } from "../utils/storage";
+import { toggleVault, isInVault, saveNote, getNoteForVideo } from "../utils/storage";
 import { getAIResponse } from "../services/gemini";
 
 // ✅ SAFETY: Crash-proof duration formatter
@@ -47,6 +47,48 @@ function VideoPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState(0);
   const chatEndRef = useRef(null);
+
+  // 🛡️ NEW: Hold the player instance
+  const playerRef = useRef(null);
+
+  // ⏱️ NEW: THE TIME TRACKER ENGINE
+  useEffect(() => {
+    let interval;
+    if (playerRef.current && video) {
+      interval = setInterval(async () => {
+        try {
+          const currentTime = await playerRef.current.getCurrentTime();
+
+          if (currentTime > 5) { // Only save if they watched at least 5 seconds
+            const history = JSON.parse(localStorage.getItem("focus_history") || "[]");
+            const existingIdx = history.findIndex(v => v.id === id);
+
+            const entry = {
+              id,
+              title: video.snippet.title,
+              thumbnail: video.snippet.thumbnails.high?.url,
+              channel: video.snippet.channelTitle,
+              duration: video.contentDetails?.duration || "0:00",
+              timestamp: Date.now(),
+              lastWatched: new Date().toISOString(),
+              resumeTime: currentTime // 👈 This is the golden variable the chart needs
+            };
+
+            if (existingIdx > -1) {
+              history[existingIdx] = { ...history[existingIdx], ...entry };
+            } else {
+              history.unshift(entry);
+            }
+
+            localStorage.setItem("focus_history", JSON.stringify(history.slice(0, 50)));
+          }
+        } catch (err) {
+          // Ignore errors if player isn't fully ready yet
+        }
+      }, 3000); // Saves your spot every 3 seconds
+    }
+    return () => clearInterval(interval);
+  }, [video, id]);
 
   // Auto-scroll chat without jumping the whole page
   useEffect(() => {
@@ -106,17 +148,6 @@ function VideoPage() {
     const init = async () => {
       const vData = await fetchVideoDetails(id);
       setVideo(vData);
-
-      try {
-        addToHistory({
-          id,
-          title: vData.snippet.title,
-          thumbnail: vData.snippet.thumbnails.high?.url,
-          channel: vData.snippet.channelTitle,
-          duration: formatDuration(vData.contentDetails?.duration),
-          timestamp: Date.now()
-        });
-      } catch (e) { console.error(e); }
 
       setIsSaved(isInVault(id));
       const liked = JSON.parse(localStorage.getItem("liked_videos") || "[]");
@@ -198,6 +229,7 @@ function VideoPage() {
             videoId={id}
             opts={opts}
             style={{ height: "100%" }}
+            onReady={(e) => { playerRef.current = e.target; }} // 👈 NEW: Connects the player to the tracker
             onStateChange={(e) => { if (e.data === 0) setIsVideoEnded(true); }}
             className="youtube-player"
           />
