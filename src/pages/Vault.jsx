@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, Bookmark, StickyNote, MessageSquare } from "lucide-react";
+import { Flame, Clock, Calendar, ChevronRight, StickyNote, MessageSquare, History } from "lucide-react";
 import { getHistory } from "../utils/storage";
 
 function Vault() {
-  const [totalMins, setTotalMins] = useState(0);
+  const [stats, setStats] = useState({
+    totalMins: 0,
+    todayMins: 0,
+    weeklyData: [0, 0, 0, 0, 0, 0, 0] // Sun - Sat
+  });
 
-  // ⏱️ Helper: Parse duration string (e.g., "10:05", "1:05:20", or ISO) to minutes
+  // ⏱️ Helper: Parse duration string to minutes
   const parseDuration = (str) => {
     if (!str) return 0;
-
-    // Handle ISO 8601 (e.g., PT15M30S)
     if (str.startsWith("PT")) {
       const match = str.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
       const h = parseInt((match[1] || "").replace("H", "")) || 0;
@@ -18,8 +20,6 @@ function Vault() {
       const s = parseInt((match[3] || "").replace("S", "")) || 0;
       return (h * 60) + m + (s / 60);
     }
-
-    // Handle "MM:SS" or "HH:MM:SS"
     const parts = str.split(":").map(Number);
     if (parts.length === 3) return (parts[0] * 60) + parts[1] + (parts[2] / 60);
     if (parts.length === 2) return parts[0] + (parts[1] / 60);
@@ -28,72 +28,128 @@ function Vault() {
 
   useEffect(() => {
     const history = getHistory();
-    // 🧮 Calculate total focus time from history
-    const totalMinutes = history.reduce((acc, video) => {
-      // Use saved duration or default to 10 mins estimate if missing/invalid
-      const vidDuration = parseDuration(video.duration);
-      return acc + (vidDuration || 15);
-    }, 0);
+    const now = new Date();
+    const todayStr = now.toDateString();
+    
+    let total = 0;
+    let today = 0;
+    let weekBuckets = [0, 0, 0, 0, 0, 0, 0]; // Index 0 = Sunday
 
-    setTotalMins(Math.round(totalMinutes));
+    history.forEach(video => {
+      const vidMins = parseDuration(video.duration) || 15; // fallback to 15m
+      const vidDate = new Date(video.timestamp || Date.now());
+      
+      total += vidMins;
+      
+      if (vidDate.toDateString() === todayStr) {
+        today += vidMins;
+      }
+
+      // Check if video was watched in the last 7 days
+      const diffTime = Math.abs(now - vidDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      
+      if (diffDays <= 7) {
+        weekBuckets[vidDate.getDay()] += vidMins;
+      }
+    });
+
+    setStats({
+      totalMins: Math.round(total),
+      todayMins: Math.round(today),
+      weeklyData: weekBuckets
+    });
   }, []);
 
-  const hours = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
+  const formatHrsMins = (mins) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  };
 
-  // Progress for the circle (Max 5 hours target)
-  const progress = Math.min((totalMins / 300) * 100, 100);
+  // Find max value for chart scaling (minimum scale of 60 mins so small bars don't look huge)
+  const maxWeeklyMins = Math.max(...stats.weeklyData, 60);
+  const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Digital Wellbeing</h1>
 
-      {/* 📊 REAL DATA GRAPH */}
-      <div style={styles.donutCard}>
-        <div style={styles.donutInner}>
-          <h2 style={styles.timeText}>
-            {hours}h {mins}m
-          </h2>
-          <p style={styles.subText}>Focus Time (Est.)</p>
+      {/* 🏆 STATS ROW */}
+      <div style={styles.statsRow}>
+        <div style={styles.statCard}>
+          <div style={styles.statIcon}><Clock size={20} color="#2196f3" /></div>
+          <div>
+            <p style={styles.statLabel}>Today's Focus</p>
+            <h2 style={styles.statValue}>{formatHrsMins(stats.todayMins)}</h2>
+          </div>
         </div>
-        <svg width="220" height="220" viewBox="0 0 42 42" style={{ transform: "rotate(-90deg)" }}>
-          {/* Background Circle */}
-          <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#222" strokeWidth="3" />
-          {/* Progress Circle */}
-          <circle
-            cx="21" cy="21" r="15.9" fill="transparent" stroke="#ff4444" strokeWidth="3"
-            strokeDasharray={`${progress} 100`}
-            strokeDashoffset="0"
-            strokeLinecap="round"
-          />
-        </svg>
+
+        <div style={styles.statCard}>
+          <div style={{ ...styles.statIcon, background: "rgba(255, 152, 0, 0.1)" }}><Flame size={20} color="#ff9800" /></div>
+          <div>
+            <p style={styles.statLabel}>All-Time Focus</p>
+            <h2 style={styles.statValue}>{formatHrsMins(stats.totalMins)}</h2>
+          </div>
+        </div>
+      </div>
+
+      {/* 📊 7-DAY ACTIVITY CHART */}
+      <div style={styles.chartCard}>
+        <div style={styles.chartHeader}>
+          <h3 style={styles.chartTitle}><Calendar size={18} /> Last 7 Days</h3>
+        </div>
+        
+        <div style={styles.chartArea}>
+          {stats.weeklyData.map((mins, idx) => {
+            const heightPercent = `${(mins / maxWeeklyMins) * 100}%`;
+            const isToday = new Date().getDay() === idx;
+            
+            return (
+              <div key={idx} style={styles.barCol}>
+                <div style={styles.barTrack}>
+                  <div 
+                    style={{ 
+                      ...styles.barFill, 
+                      height: heightPercent,
+                      background: isToday ? "#4caf50" : "#ff4444"
+                    }} 
+                    title={`${Math.round(mins)} mins`}
+                  />
+                </div>
+                <span style={{ ...styles.dayLabel, color: isToday ? "#4caf50" : "#888", fontWeight: isToday ? "bold" : "normal" }}>
+                  {daysOfWeek[idx]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* 🧭 NAVIGATION GRID */}
       <div style={styles.btnGrid}>
-
-        {/* ❤️ Liked Videos */}
-        <Link to="/liked" style={styles.sqBtn}>
-          <Heart color="#ff4444" size={32} />
-          <span>Liked Videos</span>
+        <Link to="/history" style={styles.navBtn}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ ...styles.navIconBox, background: "rgba(255, 68, 68, 0.1)" }}><History color="#ff4444" size={24} /></div>
+            <span style={styles.navText}>Watch History</span>
+          </div>
+          <ChevronRight color="#555" />
         </Link>
 
-        {/* 🔖 Saved Videos */}
-        <Link to="/saved" style={styles.sqBtn}>
-          <Bookmark color="#4caf50" size={32} />
-          <span>Saved Videos</span>
+        <Link to="/notes" style={styles.navBtn}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ ...styles.navIconBox, background: "rgba(255, 152, 0, 0.1)" }}><StickyNote color="#ff9800" size={24} /></div>
+            <span style={styles.navText}>My Notes</span>
+          </div>
+          <ChevronRight color="#555" />
         </Link>
 
-        {/* 📝 My Notes (Navigates to Notes Page) */}
-        <Link to="/notes" style={styles.sqBtn}>
-          <StickyNote color="#ff9800" size={32} />
-          <span>My Notes</span>
-        </Link>
-
-        {/* 🤖 AI Insights (Placeholder) */}
-        <button style={styles.sqBtn} onClick={() => alert("AI Insights generating...")}>
-          <MessageSquare color="#2196f3" size={32} />
-          <span>AI Insights</span>
+        <button style={styles.navBtn} onClick={() => alert("AI Insights generating...")}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ ...styles.navIconBox, background: "rgba(33, 150, 243, 0.1)" }}><MessageSquare color="#2196f3" size={24} /></div>
+            <span style={styles.navText}>AI Insights</span>
+          </div>
+          <ChevronRight color="#555" />
         </button>
       </div>
     </div>
@@ -102,27 +158,28 @@ function Vault() {
 
 const styles = {
   container: { padding: "40px", maxWidth: "800px", margin: "0 auto", color: "white" },
-  title: { fontSize: "32px", fontWeight: "900", marginBottom: "40px", textAlign: "center" },
+  title: { fontSize: "32px", fontWeight: "900", marginBottom: "30px" },
 
-  // Graph Styles
-  donutCard: {
-    background: "#111", padding: "40px", borderRadius: "40px",
-    display: "flex", justifyContent: "center", position: "relative",
-    marginBottom: "40px", border: "1px solid #222", boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
-  },
-  donutInner: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
-  timeText: { fontSize: "35px", margin: 0, fontWeight: "bold" },
-  subText: { color: "#666", fontSize: "14px", textTransform: "uppercase", letterSpacing: "1px" },
+  statsRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" },
+  statCard: { background: "#111", padding: "24px", borderRadius: "20px", border: "1px solid #222", display: "flex", alignItems: "center", gap: "20px" },
+  statIcon: { background: "rgba(33, 150, 243, 0.1)", width: "48px", height: "48px", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" },
+  statLabel: { color: "#888", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px", margin: "0 0 4px 0" },
+  statValue: { fontSize: "28px", fontWeight: "900", margin: 0 },
 
-  // Button Grid
-  btnGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" },
-  sqBtn: {
-    background: "#1a1a1a", padding: "30px", borderRadius: "24px",
-    border: "1px solid #333", display: "flex", flexDirection: "column",
-    alignItems: "center", gap: "15px", textDecoration: "none",
-    color: "white", fontSize: "16px", fontWeight: "bold",
-    transition: "0.2s", cursor: "pointer"
-  }
+  chartCard: { background: "#111", padding: "30px", borderRadius: "24px", border: "1px solid #222", marginBottom: "30px" },
+  chartHeader: { marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  chartTitle: { fontSize: "16px", fontWeight: "bold", margin: 0, display: "flex", alignItems: "center", gap: "8px" },
+  
+  chartArea: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", height: "150px", padding: "10px 0" },
+  barCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", flex: 1 },
+  barTrack: { width: "16px", height: "120px", background: "#222", borderRadius: "8px", display: "flex", alignItems: "flex-end", overflow: "hidden" },
+  barFill: { width: "100%", borderRadius: "8px", transition: "height 0.5s ease-out" },
+  dayLabel: { fontSize: "12px" },
+
+  btnGrid: { display: "flex", flexDirection: "column", gap: "15px" },
+  navBtn: { background: "#111", border: "1px solid #222", padding: "16px 24px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textDecoration: "none", transition: "all 0.2s" },
+  navIconBox: { width: "40px", height: "40px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" },
+  navText: { color: "white", fontSize: "16px", fontWeight: "bold" }
 };
 
 export default Vault;
