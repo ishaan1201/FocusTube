@@ -4,7 +4,7 @@ import { fetchSearchVideos, fetchVideoDetailsBatch } from "../services/youtube";
 import { Radio, RefreshCw, Search } from "lucide-react";
 
 // 🚨 STRICT FOCUS CATEGORIES
-const LIVE_CATEGORIES = ["All", "News", "Trading", "Coding", "Science", "Tech News", "Study & Build"];
+const LIVE_CATEGORIES = ["All", "Study", "News", "Trading", "Coding", "Science", "Tech News", "Study & Build"];
 
 function LivePage() {
   const [videos, setVideos] = useState([]);
@@ -20,6 +20,8 @@ function LivePage() {
       let baseQuery = "";
       if (activeCategory === "All") {
         baseQuery = "news | technology | coding | trading | study with me";
+      } else if (activeCategory === "Study") {
+        baseQuery = "study with me | deep work | focus music | lofi study | exam prep";
       } else if (activeCategory === "Study & Build") {
         baseQuery = "study with me | productivity | DIY tech | arduino | tinkering";
       } else {
