@@ -1,30 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Flame, Clock, Calendar, ChevronRight, StickyNote, MessageSquare, History } from "lucide-react";
+import { Flame, Clock, Calendar, StickyNote, MessageSquare, History, Heart, Bookmark } from "lucide-react";
 import { getHistory } from "../utils/storage";
 
 function Vault() {
   const [stats, setStats] = useState({
     totalMins: 0,
     todayMins: 0,
-    weeklyData: [0, 0, 0, 0, 0, 0, 0] // Sun - Sat
+    weeklyData: [0, 0, 0, 0, 0, 0, 0] 
   });
-
-  // ⏱️ Helper: Parse duration string to minutes
-  const parseDuration = (str) => {
-    if (!str) return 0;
-    if (str.startsWith("PT")) {
-      const match = str.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-      const h = parseInt((match[1] || "").replace("H", "")) || 0;
-      const m = parseInt((match[2] || "").replace("M", "")) || 0;
-      const s = parseInt((match[3] || "").replace("S", "")) || 0;
-      return (h * 60) + m + (s / 60);
-    }
-    const parts = str.split(":").map(Number);
-    if (parts.length === 3) return (parts[0] * 60) + parts[1] + (parts[2] / 60);
-    if (parts.length === 2) return parts[0] + (parts[1] / 60);
-    return 0;
-  };
 
   useEffect(() => {
     const history = getHistory();
@@ -33,11 +17,26 @@ function Vault() {
     
     let total = 0;
     let today = 0;
-    let weekBuckets = [0, 0, 0, 0, 0, 0, 0]; // Index 0 = Sunday
+    let weekBuckets = [0, 0, 0, 0, 0, 0, 0]; 
 
     history.forEach(video => {
-      const vidMins = parseDuration(video.duration) || 15; // fallback to 15m
-      const vidDate = new Date(video.timestamp || Date.now());
+      let vidMins = 0;
+      
+      // 🛡️ THE ULTIMATE FIX: Stop guessing the video length!
+      // If resumeTime exists (even if it is literally 0), we divide by 60 to get exact minutes.
+      if (video.resumeTime !== undefined && video.resumeTime !== null) {
+        vidMins = Number(video.resumeTime) / 60;
+      } else {
+        // If there is totally corrupted data, add 0. NEVER add the full video length.
+        vidMins = 0; 
+      }
+
+      // Safety caps
+      if (isNaN(vidMins) || vidMins < 0) vidMins = 0;
+      if (vidMins > 600) vidMins = 600; 
+
+      // Parse the date
+      const vidDate = new Date(video.lastWatched || video.timestamp || Date.now());
       
       total += vidMins;
       
@@ -45,11 +44,11 @@ function Vault() {
         today += vidMins;
       }
 
-      // Check if video was watched in the last 7 days
-      const diffTime = Math.abs(now - vidDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      // Add to the 7-day chart buckets
+      const diffTime = now.getTime() - vidDate.getTime();
+      const diffDays = diffTime / (1000 * 3600 * 24); 
       
-      if (diffDays <= 7) {
+      if (diffDays >= 0 && diffDays < 7) {
         weekBuckets[vidDate.getDay()] += vidMins;
       }
     });
@@ -67,7 +66,6 @@ function Vault() {
     return `${h}h ${m}m`;
   };
 
-  // Find max value for chart scaling (minimum scale of 60 mins so small bars don't look huge)
   const maxWeeklyMins = Math.max(...stats.weeklyData, 60);
   const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -102,8 +100,12 @@ function Vault() {
         
         <div style={styles.chartArea}>
           {stats.weeklyData.map((mins, idx) => {
-            const heightPercent = `${(mins / maxWeeklyMins) * 100}%`;
             const isToday = new Date().getDay() === idx;
+            const safeMins = Math.max(0, mins);
+            
+            // Ensure minimum 4% visual height only if they actually watched something > 0
+            const calculatedHeight = safeMins > 0 ? Math.max(4, (safeMins / maxWeeklyMins) * 100) : 0;
+            const heightPercent = `${Math.min(100, calculatedHeight)}%`;
             
             return (
               <div key={idx} style={styles.barCol}>
@@ -114,7 +116,7 @@ function Vault() {
                       height: heightPercent,
                       background: isToday ? "#4caf50" : "#ff4444"
                     }} 
-                    title={`${Math.round(mins)} mins`}
+                    title={`${Math.round(safeMins)} mins`}
                   />
                 </div>
                 <span style={{ ...styles.dayLabel, color: isToday ? "#4caf50" : "#888", fontWeight: isToday ? "bold" : "normal" }}>
@@ -126,31 +128,34 @@ function Vault() {
         </div>
       </div>
 
-      {/* 🧭 NAVIGATION GRID */}
+      {/* 🎛️ RECTANGULAR NAVIGATION GRID */}
       <div style={styles.btnGrid}>
-        <Link to="/history" style={styles.navBtn}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ ...styles.navIconBox, background: "rgba(255, 68, 68, 0.1)" }}><History color="#ff4444" size={24} /></div>
-            <span style={styles.navText}>Watch History</span>
-          </div>
-          <ChevronRight color="#555" />
+        
+        <Link to="/history" style={styles.boxBtn}>
+          <div style={{ ...styles.boxIcon, background: "rgba(255, 68, 68, 0.1)" }}><History color="#ff4444" size={26} /></div>
+          <span style={styles.boxText}>History</span>
         </Link>
 
-        <Link to="/notes" style={styles.navBtn}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ ...styles.navIconBox, background: "rgba(255, 152, 0, 0.1)" }}><StickyNote color="#ff9800" size={24} /></div>
-            <span style={styles.navText}>My Notes</span>
-          </div>
-          <ChevronRight color="#555" />
+        <Link to="/liked" style={styles.boxBtn}>
+          <div style={{ ...styles.boxIcon, background: "rgba(233, 30, 99, 0.1)" }}><Heart color="#e91e63" size={26} /></div>
+          <span style={styles.boxText}>Liked</span>
         </Link>
 
-        <button style={styles.navBtn} onClick={() => alert("AI Insights generating...")}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ ...styles.navIconBox, background: "rgba(33, 150, 243, 0.1)" }}><MessageSquare color="#2196f3" size={24} /></div>
-            <span style={styles.navText}>AI Insights</span>
-          </div>
-          <ChevronRight color="#555" />
+        <Link to="/saved" style={styles.boxBtn}>
+          <div style={{ ...styles.boxIcon, background: "rgba(76, 175, 80, 0.1)" }}><Bookmark color="#4caf50" size={26} /></div>
+          <span style={styles.boxText}>Saved</span>
+        </Link>
+
+        <Link to="/notes" style={styles.boxBtn}>
+          <div style={{ ...styles.boxIcon, background: "rgba(255, 152, 0, 0.1)" }}><StickyNote color="#ff9800" size={26} /></div>
+          <span style={styles.boxText}>Notes</span>
+        </Link>
+
+        <button style={styles.boxBtn} onClick={() => alert("AI Insights generating...")}>
+          <div style={{ ...styles.boxIcon, background: "rgba(33, 150, 243, 0.1)" }}><MessageSquare color="#2196f3" size={26} /></div>
+          <span style={styles.boxText}>Insights</span>
         </button>
+
       </div>
     </div>
   );
@@ -176,10 +181,10 @@ const styles = {
   barFill: { width: "100%", borderRadius: "8px", transition: "height 0.5s ease-out" },
   dayLabel: { fontSize: "12px" },
 
-  btnGrid: { display: "flex", flexDirection: "column", gap: "15px" },
-  navBtn: { background: "#111", border: "1px solid #222", padding: "16px 24px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textDecoration: "none", transition: "all 0.2s" },
-  navIconBox: { width: "40px", height: "40px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" },
-  navText: { color: "white", fontSize: "16px", fontWeight: "bold" }
+  btnGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "16px" },
+  boxBtn: { background: "#111", border: "1px solid #222", padding: "24px 10px", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", cursor: "pointer", textDecoration: "none", transition: "transform 0.2s" },
+  boxIcon: { width: "54px", height: "54px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "4px" },
+  boxText: { color: "white", fontSize: "14px", fontWeight: "bold" }
 };
 
 export default Vault;
