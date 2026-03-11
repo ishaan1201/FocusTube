@@ -5,8 +5,6 @@ import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Home from "./pages/Home";
 import VideoPage from "./pages/VideoPage";
-// Header import removed (duplicate)
-
 import Vault from "./pages/Vault";
 import SavedPage from "./pages/SavedPage";
 import ShortsPage from "./pages/ShortsPage";
@@ -22,28 +20,38 @@ import ShortsPlayer from "./pages/ShortsPlayer";
 import FocusPage from "./pages/FocusPage";
 import LivePlayer from "./pages/LivePlayer";
 import CategoryPage from "./pages/CategoryPage";
-import ProfileSettings from "./pages/ProfileSettings"; // ✅ New Route Import
+import ProfileSettings from "./pages/ProfileSettings";
 import AiInsights from "./pages/AiInsight";
+
+export const AMBIENCE_TRACKS = [
+  { id: "5yx6BWlEVcY", name: "Chillhop 🦝" },      
+  { id: "jfKfPfyJRdk", name: "Lofi Girl ☕" },       
+  { id: "M5QY2_8704o", name: "White Noise 💨" },    
+  { id: "Rb0UmrCXxVA", name: "Mozart Classical 🎻" }, 
+  { id: "TURbeWK2wwg", name: "Forest Nature 🌲" }   
+];
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem("focus-theme") || "Dark");
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 🛡️ NEW HYPER-FOCUS STATE
-  const [focusMode, setFocusMode] = useState(false); // Locked into one category?
-  const [activeCategory, setActiveCategory] = useState(null); // Which category is locked?
+  const [focusMode, setFocusMode] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(null);
 
-  // ⏱️ GLOBAL TIMER STATE
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [showSessionDone, setShowSessionDone] = useState(false);
 
+  // 🎵 GLOBAL MUSIC STATE
+  const [bgVideoId, setBgVideoId] = useState(null); 
+
   useEffect(() => {
     if (Notification.permission !== "granted") Notification.requestPermission();
   }, []);
 
+  // 1. THE STOPWATCH
   useEffect(() => {
     let interval = null;
     if (isActive && timeLeft > 0) {
@@ -60,24 +68,48 @@ function App() {
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
 
-  // ✅ THEME ENGINE: Strictly Night & Darker
+  // 2. THE AI WALKIE-TALKIE RECEIVER (Global Timer & Music)
+  useEffect(() => {
+    const handleSetTimer = (e) => {
+      setTimeLeft(e.detail.minutes * 60);
+      setIsActive(true);
+      setSessionStarted(true);
+    };
+    const handleToggleTimer = (e) => setIsActive(e.detail.action === 'play');
+    
+    const handleMusic = (e) => {
+      const trackQuery = e.detail.track.toLowerCase();
+      if (trackQuery === "silence") return setBgVideoId(null);
+      const track = AMBIENCE_TRACKS.find(t => t.name.toLowerCase().includes(trackQuery));
+      if (track) setBgVideoId(track.id);
+    };
+    
+    window.addEventListener('focus-timer-set', handleSetTimer);
+    window.addEventListener('focus-timer-toggle', handleToggleTimer);
+    window.addEventListener('focus-music', handleMusic);
+    
+    return () => {
+      window.removeEventListener('focus-timer-set', handleSetTimer);
+      window.removeEventListener('focus-timer-toggle', handleToggleTimer);
+      window.removeEventListener('focus-music', handleMusic);
+    }
+  }, []);
+
   useEffect(() => {
     const root = document.documentElement;
     localStorage.setItem("focus-theme", theme);
 
     if (theme === "Night") {
-      // 🌑 PURE BLACK
       root.style.setProperty('--bg-primary', '#000000');
       root.style.setProperty('--card-bg', '#0a0a0a');
-      root.style.setProperty('--text-primary', '#ffffff');   // White text
-      root.style.setProperty('--text-secondary', '#888888'); // Gray text
+      root.style.setProperty('--text-primary', '#ffffff');
+      root.style.setProperty('--text-secondary', '#888888');
       root.style.setProperty('--border-color', '#1a1a1a');
     } else {
-      // 🌚 DARKER (Charcoal)
       root.style.setProperty('--bg-primary', '#0f0f0f');
       root.style.setProperty('--card-bg', '#161616');
-      root.style.setProperty('--text-primary', '#f1f1f1');   // Off-white text
-      root.style.setProperty('--text-secondary', '#aaaaaa'); // Light gray text
+      root.style.setProperty('--text-primary', '#f1f1f1');
+      root.style.setProperty('--text-secondary', '#aaaaaa');
       root.style.setProperty('--border-color', '#222222');
     }
   }, [theme]);
@@ -90,10 +122,11 @@ function App() {
           toggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
           onSearch={(q) => setSearchQuery(q)}
           timer={{ timeLeft, isActive, sessionStarted, setIsActive }}
+          bgVideoId={bgVideoId}        
+          setBgVideoId={setBgVideoId}  
         />
 
         <div style={{ display: "flex", flex: 1 }}>
-          {/* ✅ Pass Focus State to Sidebar */}
           <Sidebar
             open={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
@@ -103,10 +136,7 @@ function App() {
 
           <main style={{ flex: 1 }}>
             <Routes>
-              {/* Home is now just a general dashboard */}
               <Route path="/" element={<Home query={searchQuery} />} />
-
-              {/* ✅ New Category Route */}
               <Route path="/category/:slug" element={
                 <CategoryPage
                   focusMode={focusMode}
@@ -115,7 +145,6 @@ function App() {
                   setActiveCategory={setActiveCategory}
                 />
               } />
-
               <Route path="/video/:id" element={<VideoPage />} />
               <Route path="/channel/:id" element={<ChannelPage />} />
               <Route path="/vault" element={<Vault />} />
@@ -136,19 +165,24 @@ function App() {
                 globalActive={isActive}
                 setGlobalActive={setIsActive}
                 setSessionStarted={setSessionStarted}
+                bgVideoId={bgVideoId}
+                setBgVideoId={setBgVideoId}
+                ambienceTracks={AMBIENCE_TRACKS}
               />} />
 
-              <Route
-                path="/settings"
-                element={<Settings theme={theme} setTheme={setTheme} />}
-              />
+              <Route path="/settings" element={<Settings theme={theme} setTheme={setTheme} />} />
               <Route path="/profile" element={<ProfileSettings />} />
               <Route path="/insights" element={<AiInsights />} />
             </Routes>
           </main>
         </div>
 
-        {/* SESSION DONE MODAL */}
+        {bgVideoId && (
+          <div style={{ display: "none" }}>
+            <iframe width="1" height="1" src={`https://www.youtube.com/embed/${bgVideoId}?autoplay=1&loop=1&playlist=${bgVideoId}&controls=0`} title="Global Ambience" allow="autoplay" />
+          </div>
+        )}
+
         {showSessionDone && (
           <div style={styles.modalOverlay}>
             <div style={styles.modal}>

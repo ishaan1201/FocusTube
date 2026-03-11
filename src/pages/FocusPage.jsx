@@ -1,30 +1,18 @@
 import { useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, CheckCircle, Plus, Volume2, Coffee, Brain, Edit3, Save } from "lucide-react";
 
-// 🎵 Ambience Presets (Updated Playlist)
-const AMBIENCE_TRACKS = [
-  { id: "5yx6BWlEVcY", name: "Chillhop 🦝" },      // Existing
-  { id: "jfKfPfyJRdk", name: "Lofi Girl ☕" },       // ✅ Replaced Rain with Lofi Girl
-  { id: "M5QY2_8704o", name: "White Noise 💨" },    // Existing
-  { id: "Rb0UmrCXxVA", name: "Mozart Classical 🎻" }, // ✅ Fixed Broken Link
-  { id: "TURbeWK2wwg", name: "Forest Nature 🌲" }   // Existing
-];
-
-function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, setSessionStarted }) {
+// 🚀 Accept the new music props from App.jsx!
+function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, setSessionStarted, bgVideoId, setBgVideoId, ambienceTracks }) {
   
   const [mode, setMode] = useState("focus"); 
-
-  // Editing State
   const [isEditing, setIsEditing] = useState(false);
   const [editH, setEditH] = useState(0);
   const [editM, setEditM] = useState(25);
   const [editS, setEditS] = useState(0);
 
-  const [bgVideoId, setBgVideoId] = useState(null); 
   const [tasks, setTasks] = useState([]);
   const [taskInput, setTaskInput] = useState("");
 
-  // 🔄 Timer Controls
   const toggleTimer = () => {
     const newState = !globalActive;
     setGlobalActive(newState);
@@ -69,11 +57,19 @@ function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, s
   };
 
   const addTask = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!taskInput.trim()) return;
-    setTasks([...tasks, { id: Date.now(), text: taskInput, completed: false }]);
+    setTasks(prev => [...prev, { id: Date.now(), text: taskInput, completed: false }]);
     setTaskInput("");
   };
+
+  // 🚀 AI WALKIE-TALKIE RECEIVER (Tasks Only)
+  useEffect(() => {
+    const handleTask = (e) => setTasks(prev => [...prev, { id: Date.now(), text: e.detail.task, completed: false }]);
+    window.addEventListener('focus-add-task', handleTask);
+    return () => window.removeEventListener('focus-add-task', handleTask);
+  }, []);
+
   const toggleTask = (id) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
@@ -88,7 +84,6 @@ function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, s
 
   return (
     <div style={styles.container}>
-      {/* LEFT PANEL */}
       <div style={styles.leftPanel}>
         <div style={styles.timerCard}>
           <div style={styles.modeTabs}>
@@ -132,7 +127,6 @@ function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, s
           </div>
         </div>
 
-        {/* AUDIO SECTION */}
         <div style={styles.audioCard}>
           <div style={styles.cardHeader}>
             <Volume2 size={24} color="#ff4444" /> 
@@ -140,21 +134,15 @@ function FocusPage({ globalTime, setGlobalTime, globalActive, setGlobalActive, s
           </div>
           <div style={styles.trackList}>
             <button style={{...styles.trackBtn, borderColor: !bgVideoId ? "#ff4444" : "#333"}} onClick={() => setBgVideoId(null)}>Silence 🔇</button>
-            {AMBIENCE_TRACKS.map(track => (
+            {ambienceTracks.map(track => (
               <button key={track.id} style={{...styles.trackBtn, borderColor: bgVideoId === track.id ? "#ff4444" : "#333", background: bgVideoId === track.id ? "#222" : "transparent"}} onClick={() => setBgVideoId(track.id)}>
                 {track.name}
               </button>
             ))}
           </div>
-          {bgVideoId && (
-            <div style={styles.hiddenPlayer}>
-              <iframe width="1" height="1" src={`https://www.youtube.com/embed/${bgVideoId}?autoplay=1&loop=1&playlist=${bgVideoId}&controls=0`} title="Ambience" allow="autoplay" />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* RIGHT PANEL - TASKS */}
       <div style={styles.rightPanel}>
         <h2 style={styles.sectionTitle}>Session Goals</h2>
         <form onSubmit={addTask} style={styles.inputGroup}>
@@ -212,7 +200,6 @@ const styles = {
     transition: "0.2s"
   },
   
-  hiddenPlayer: { textAlign: "center", padding: "10px", background: "#0f0f0f", borderRadius: "8px", marginTop: "10px", border: "1px dashed #333" },
   sectionTitle: { fontSize: "20px", marginBottom: "20px" },
   inputGroup: { display: "flex", gap: "10px", marginBottom: "20px" },
   input: { flex: 1, background: "#222", border: "none", padding: "12px 16px", borderRadius: "12px", color: "white", outline: "none" },

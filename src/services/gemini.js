@@ -103,7 +103,8 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
           
           if (query) {
             try {
-              const serpUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
+              // 🚀 FIX: gl=us&hl=en prevents Hindi results from appearing based on server location
+              const serpUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}&gl=us&hl=en`;
               const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(serpUrl)}`;
 
               const response = await fetch(proxyUrl);
@@ -112,7 +113,17 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
               if (data.organic_results && data.organic_results.length > 0) {
                 let resMd = `\n\n**🌐 Live Search Results for "${query}":**\n\n`;
                 data.organic_results.slice(0, 3).forEach(r => {
-                  resMd += `* **[${r.title}](${r.link})**\n  *${r.snippet}*\n\n`;
+                  // 🚀 FIX: Convert YouTube links to FocusTube internal links
+                  let link = r.link;
+                  if (link.includes("youtube.com/watch?v=")) {
+                    const videoId = link.split("v=")[1].split("&")[0];
+                    link = `/video/${videoId}`;
+                  } else if (link.includes("youtu.be/")) {
+                    const videoId = link.split("youtu.be/")[1].split("?")[0];
+                    link = `/video/${videoId}`;
+                  }
+                  
+                  resMd += `* **[${r.title}](${link})**\n  *${r.snippet}*\n\n`;
                 });
                 aiText = aiText.replace(fullTag, resMd);
               } else {
