@@ -1,63 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Flame, Clock, Calendar, StickyNote, MessageSquare, History, Heart, Bookmark } from "lucide-react";
-import { getHistory } from "../utils/storage";
+// IMPORT THE NEW STATS FUNCTION
+import { getFocusStats } from "../utils/storage";
 
 function Vault() {
   const [stats, setStats] = useState({
     totalMins: 0,
     todayMins: 0,
-    weeklyData: [0, 0, 0, 0, 0, 0, 0] 
+    weeklyData: [0, 0, 0, 0, 0, 0, 0]
   });
 
+  // 🚀 REPLACED ALL THE MESSY MATH WITH ONE CLEAN CALL
   useEffect(() => {
-    const history = getHistory();
-    const now = new Date();
-    const todayStr = now.toDateString();
-    
-    let total = 0;
-    let today = 0;
-    let weekBuckets = [0, 0, 0, 0, 0, 0, 0]; 
-
-    history.forEach(video => {
-      let vidMins = 0;
-      
-      // 🛡️ THE ULTIMATE FIX: Stop guessing the video length!
-      // If resumeTime exists (even if it is literally 0), we divide by 60 to get exact minutes.
-      if (video.resumeTime !== undefined && video.resumeTime !== null) {
-        vidMins = Number(video.resumeTime) / 60;
-      } else {
-        // If there is totally corrupted data, add 0. NEVER add the full video length.
-        vidMins = 0; 
-      }
-
-      // Safety caps
-      if (isNaN(vidMins) || vidMins < 0) vidMins = 0;
-      if (vidMins > 600) vidMins = 600; 
-
-      // Parse the date
-      const vidDate = new Date(video.lastWatched || video.timestamp || Date.now());
-      
-      total += vidMins;
-      
-      if (vidDate.toDateString() === todayStr) {
-        today += vidMins;
-      }
-
-      // Add to the 7-day chart buckets
-      const diffTime = now.getTime() - vidDate.getTime();
-      const diffDays = diffTime / (1000 * 3600 * 24); 
-      
-      if (diffDays >= 0 && diffDays < 7) {
-        weekBuckets[vidDate.getDay()] += vidMins;
-      }
-    });
-
-    setStats({
-      totalMins: Math.round(total),
-      todayMins: Math.round(today),
-      weeklyData: weekBuckets
-    });
+    setStats(getFocusStats());
   }, []);
 
   const formatHrsMins = (mins) => {
@@ -151,10 +107,11 @@ function Vault() {
           <span style={styles.boxText}>Notes</span>
         </Link>
 
-        <button style={styles.boxBtn} onClick={() => alert("AI Insights generating...")}>
+        {/* 🚀 THE FIX: Turned the button into a Link pointing to your new AI Insights page */}
+        <Link to="/insights" style={styles.boxBtn}>
           <div style={{ ...styles.boxIcon, background: "rgba(33, 150, 243, 0.1)" }}><MessageSquare color="#2196f3" size={26} /></div>
           <span style={styles.boxText}>Insights</span>
-        </button>
+        </Link>
 
       </div>
     </div>

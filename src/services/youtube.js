@@ -52,16 +52,19 @@ export const formatDuration = (isoDuration) => {
 
 // ✅ NEW: Batch fetch for statistics & live details
 export const fetchVideoDetailsBatch = async (videoIds) => {
+  if (!videoIds) return [];
   try {
     const res = await axios.get(`${BASE_URL}/videos`, {
       params: {
-        part: 'snippet,statistics,contentDetails,liveStreamingDetails',
+        // 🚀 THE FIX: We specifically demand the liveStreamingDetails here!
+        part: 'snippet,contentDetails,statistics,liveStreamingDetails',
         id: videoIds,
         key: API_KEY
       }
     });
     return res.data.items || [];
   } catch (err) {
+    console.error(err);
     return [];
   }
 };
@@ -98,34 +101,38 @@ export const fetchPlaylistItems = async (playlistId) => {
   } catch (err) { return getMockVideos(10); }
 };
 
-export const fetchChannelPlaylists = async (channelId) => {
+export const fetchChannelPlaylists = async (channelId, pageToken = "") => {
   try {
     const res = await axios.get(`${BASE_URL}/playlists`, {
-      params: { part: 'snippet,contentDetails', channelId, maxResults: 20, key: API_KEY }
+      params: { part: 'snippet,contentDetails', channelId, maxResults: 20, pageToken, key: API_KEY }
     });
-    return res.data.items;
-  } catch (err) { return []; }
+    return { items: res.data.items, nextPageToken: res.data.nextPageToken };
+  } catch (err) { return { items: [], nextPageToken: "" }; }
 };
 
-export const fetchChannelVideosWithDuration = async (channelId) => {
+export const fetchChannelVideosWithDuration = async (channelId, pageToken = "") => {
   try {
     const searchRes = await axios.get(`${BASE_URL}/search`, {
-      params: { part: 'snippet', channelId, maxResults: 50, order: 'date', type: 'video', key: API_KEY }
+      params: { part: 'snippet', channelId, maxResults: 50, order: 'date', type: 'video', pageToken, key: API_KEY }
     });
 
-    const videoIds = searchRes.data.items.map(v => v.id.videoId).join(',');
+    const videoIds = searchRes.data.items.map(v => v.id.videoId).filter(Boolean).join(',');
+    if (!videoIds) return { items: [], nextPageToken: searchRes.data.nextPageToken };
+
     const details = await fetchVideoDetailsBatch(videoIds);
 
-    return searchRes.data.items.map(item => {
+    const items = searchRes.data.items.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       return {
         ...item,
         contentDetails: detail?.contentDetails,
         statistics: detail?.statistics,
+        liveStreamingDetails: detail?.liveStreamingDetails,
         duration: formatDuration(detail?.contentDetails?.duration)
       };
     });
-  } catch (err) { return getMockVideos(20); }
+    return { items, nextPageToken: searchRes.data.nextPageToken };
+  } catch (err) { return { items: getMockVideos(20), nextPageToken: "" }; }
 };
 
 export const fetchTrendingVideos = async (token = '', categoryId = '0') => {
@@ -298,15 +305,16 @@ export const fetchChannelsByIds = async (channelIds) => {
   } catch (err) { return []; }
 };
 
-export const searchChannelSpecific = async (channelId, query) => {
+export const searchChannelSpecific = async (channelId, query, pageToken = "") => {
   try {
     const res = await axios.get(`${BASE_URL}/search`, {
-      params: { part: 'snippet', channelId, q: query, maxResults: 20, type: 'video', key: API_KEY }
+      params: { part: 'snippet', channelId, q: query, maxResults: 20, type: 'video', pageToken, key: API_KEY }
     });
-    const videoIds = res.data.items.map(v => v.id.videoId).join(',');
-    if (!videoIds) return [];
+    const videoIds = res.data.items.map(v => v.id.videoId).filter(Boolean).join(',');
+    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken };
+
     const details = await fetchVideoDetailsBatch(videoIds);
-    return res.data.items.map(item => {
+    const items = res.data.items.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       return {
         ...item,
@@ -314,5 +322,6 @@ export const searchChannelSpecific = async (channelId, query) => {
         views: detail?.statistics?.viewCount
       };
     });
-  } catch (err) { return []; }
+    return { items, nextPageToken: res.data.nextPageToken };
+  } catch (err) { return { items: [], nextPageToken: "" }; }
 };

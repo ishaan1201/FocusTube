@@ -23,6 +23,7 @@ import FocusPage from "./pages/FocusPage";
 import LivePlayer from "./pages/LivePlayer";
 import CategoryPage from "./pages/CategoryPage";
 import ProfileSettings from "./pages/ProfileSettings"; // ✅ New Route Import
+import AiInsights from "./pages/AiInsight";
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem("focus-theme") || "Dark");
@@ -142,6 +143,7 @@ function App() {
                 element={<Settings theme={theme} setTheme={setTheme} />}
               />
               <Route path="/profile" element={<ProfileSettings />} />
+              <Route path="/insights" element={<AiInsights />} />
             </Routes>
           </main>
         </div>

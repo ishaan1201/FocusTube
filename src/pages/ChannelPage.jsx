@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   fetchChannelDetails,
@@ -6,18 +6,15 @@ import {
   fetchChannelPlaylists,
   searchChannelSpecific
 } from "../services/youtube";
-import { Search, ArrowLeft } from "lucide-react";
+import { Search, ArrowLeft, Radio, RefreshCw } from "lucide-react";
+import useInfiniteScroll from "../hooks/useInfiniteScroll";
 
 // ✅ SAFETY: Crash-proof duration formatter
 const formatDuration = (d) => {
   if (!d) return "0:00";
-
-  // If it doesn't contain 'PT', it is likely already formatted. Return it as is.
   if (!d.includes("PT")) return d;
 
   const match = d.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-
-  // 🛡️ SAFETY CHECK: If regex fails to match, return '0:00' instead of crashing
   if (!match) return "0:00";
 
   const h = parseInt(match[1]) || 0;
@@ -37,33 +34,66 @@ function ChannelPage() {
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
 
+  // Pagination State
+  const [videoNextPageToken, setVideoNextPageToken] = useState("");
+  const [playlistNextPageToken, setPlaylistNextPageToken] = useState("");
+  const [searchNextPageToken, setSearchNextPageToken] = useState("");
+
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
+  const loadData = async (isLoadMore = false) => {
+    if (!isLoadMore) setLoading(true);
+    try {
+      if (!isLoadMore) {
         const [details, content, lists] = await Promise.all([
           fetchChannelDetails(id),
           fetchChannelVideosWithDuration(id),
           fetchChannelPlaylists(id)
         ]);
         setChannel(details);
-        setVideos(content);
-        setPlaylists(lists);
+        setVideos(content.items || []);
+        setVideoNextPageToken(content.nextPageToken || "");
+        setPlaylists(lists.items || []);
+        setPlaylistNextPageToken(lists.nextPageToken || "");
 
         const followed = JSON.parse(localStorage.getItem("focus_following") || "[]");
         setIsFollowing(!!followed.find(c => c.id === id));
-      } catch (e) {
-        console.error(e);
+      } else {
+        if (activeTab === "Playlists") {
+          if (!playlistNextPageToken) return;
+          const res = await fetchChannelPlaylists(id, playlistNextPageToken);
+          setPlaylists(prev => [...prev, ...res.items]);
+          setPlaylistNextPageToken(res.nextPageToken || "");
+        } else if (activeTab === "Search") {
+          if (!searchNextPageToken) return;
+          const res = await searchChannelSpecific(id, searchQuery, searchNextPageToken);
+          setSearchResults(prev => [...prev, ...res.items]);
+          setSearchNextPageToken(res.nextPageToken || "");
+        } else {
+          if (!videoNextPageToken) return;
+          const res = await fetchChannelVideosWithDuration(id, videoNextPageToken);
+          setVideos(prev => [...prev, ...res.items]);
+          setVideoNextPageToken(res.nextPageToken || "");
+        }
       }
-      setLoading(false);
-    };
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     if (id) loadData();
   }, [id]);
+
+  const handleLoadMore = useCallback(async () => {
+    await loadData(true);
+  }, [id, activeTab, videoNextPageToken, playlistNextPageToken, searchNextPageToken, searchQuery]);
+
+  const [isFetching] = useInfiniteScroll(handleLoadMore);
 
   const toggleFollow = () => {
     if (!channel) return;
@@ -88,20 +118,38 @@ function ChannelPage() {
 
     setIsSearching(true);
     setActiveTab("Search");
+    setSearchNextPageToken("");
 
-    const results = await searchChannelSpecific(id, searchQuery);
-    setSearchResults(results);
+    const res = await searchChannelSpecific(id, searchQuery);
+    setSearchResults(res.items || []);
+    setSearchNextPageToken(res.nextPageToken || "");
     setIsSearching(false);
   };
 
-  if (loading) return <div style={{ color: "white", padding: "40px", textAlign: "center" }}>Loading Channel...</div>;
+  if (loading && videos.length === 0) return <div style={{ color: "white", padding: "40px", textAlign: "center" }}>Loading Channel...</div>;
 
-  const filteredVideos = activeTab === "Shorts"
-    ? videos.filter(v => {
+  // 🚀 THE FIX: Advanced Filtering Engine for Videos, Shorts, and Live
+  const getFilteredVideos = () => {
+    if (activeTab === "Search" || activeTab === "Playlists") return [];
+
+    return videos.filter(v => {
       const d = v.contentDetails?.duration || "";
-      return d.includes("PT") && !d.includes("M") && !d.includes("H");
-    })
-    : videos;
+      const isShort = d.includes("PT") && !d.includes("M") && !d.includes("H");
+      
+      // 🚀 DOUBLE-CHECK: Looks for actual live details OR the "live" broadcast tag
+      const isLive = !!v.liveStreamingDetails || 
+                     v.snippet?.liveBroadcastContent === "live" || 
+                     v.snippet?.liveBroadcastContent === "upcoming";
+
+      if (activeTab === "Shorts") return isShort && !isLive;
+      if (activeTab === "Live") return isLive;
+      if (activeTab === "Videos") return !isShort && !isLive; // Pure VODs only
+      
+      return true;
+    });
+  };
+
+  const displayVideos = getFilteredVideos();
 
   return (
     <div style={styles.container}>
@@ -135,12 +183,13 @@ function ChannelPage() {
 
       <div style={styles.navBar}>
         <div style={styles.tabGroup}>
-          {["Videos", "Shorts", "Playlists", "Search"].map(tab => (
+          {["Videos", "Shorts", "Live", "Playlists", "Search"].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              style={{ ...styles.tab, borderBottom: activeTab === tab ? "3px solid white" : "3px solid transparent" }}
+              style={{ ...styles.tab, borderBottom: activeTab === tab ? "3px solid white" : "3px solid transparent", display: "flex", alignItems: "center", gap: "6px" }}
             >
+              {tab === "Live" && <Radio size={16} color={activeTab === tab ? "#ff4444" : "inherit"} />}
               {tab}
             </button>
           ))}
@@ -163,37 +212,54 @@ function ChannelPage() {
       <div style={styles.grid}>
 
         {activeTab === "Playlists" && (
-          playlists.map(list => (
-            <Link to={`/playlist/${list.id}`} key={list.id} style={styles.videoCard}>
-              <div style={styles.thumbnailWrapper}>
-                <img src={list.snippet.thumbnails.high?.url} style={styles.thumbnail} alt="thumb" />
-                <div style={styles.playlistOverlay}>☰ {list.contentDetails.itemCount} Videos</div>
-              </div>
-              <h3 style={styles.videoTitle}>{list.snippet.title}</h3>
-            </Link>
-          ))
+          playlists.length > 0 ? (
+            playlists.map(list => (
+              <Link to={`/playlist/${list.id}`} key={list.id} style={styles.videoCard}>
+                <div style={styles.thumbnailWrapper}>
+                  <img src={list.snippet.thumbnails.high?.url} style={styles.thumbnail} alt="thumb" />
+                  <div style={styles.playlistOverlay}>☰ {list.contentDetails.itemCount} Videos</div>
+                </div>
+                <h3 style={styles.videoTitle}>{list.snippet.title}</h3>
+              </Link>
+            ))
+          ) : (
+            <p style={styles.emptyMsg}>This channel has no public playlists.</p>
+          )
         )}
 
-        {(activeTab === "Videos" || activeTab === "Shorts") && (
-          filteredVideos.map((video) => {
-            const vId = video.id.videoId || video.id;
-            const linkPath = activeTab === "Shorts" ? `/shorts/${vId}` : `/video/${vId}`;
+        {/* 🚀 THE FIX: Mapping for Videos, Shorts, and Live */}
+        {["Videos", "Shorts", "Live"].includes(activeTab) && (
+          displayVideos.length > 0 ? (
+            displayVideos.map((video) => {
+              const vId = video.id.videoId || video.id;
+              
+              // Dynamic Routing based on tab
+              let linkPath = `/video/${vId}`;
+              if (activeTab === "Shorts") linkPath = `/shorts/${vId}`;
+              if (activeTab === "Live") linkPath = `/live/${vId}`;
 
-            // Use existing formatted duration OR format it if raw
-            const displayDuration = video.duration || formatDuration(video.contentDetails?.duration);
+              const displayDuration = video.duration || formatDuration(video.contentDetails?.duration);
+              const isCurrentlyLive = video.snippet?.liveBroadcastContent === "live";
 
-            return (
-              <Link to={linkPath} key={vId} style={styles.videoCard}>
-                <div style={activeTab === "Shorts" ? styles.shortsWrapper : styles.thumbnailWrapper}>
-                  <img src={video.snippet.thumbnails.high?.url} style={styles.thumbnail} alt="thumb" />
-                  {activeTab !== "Shorts" && (
-                    <span style={styles.duration}>{displayDuration}</span>
-                  )}
-                </div>
-                <h3 style={styles.videoTitle}>{video.snippet.title}</h3>
-              </Link>
-            );
-          })
+              return (
+                <Link to={linkPath} key={vId} style={styles.videoCard}>
+                  <div style={activeTab === "Shorts" ? styles.shortsWrapper : styles.thumbnailWrapper}>
+                    <img src={video.snippet.thumbnails.high?.url} style={styles.thumbnail} alt="thumb" />
+                    
+                    {/* Badge Rendering logic */}
+                    {activeTab !== "Shorts" && (
+                      <span style={isCurrentlyLive ? styles.liveBadge : styles.duration}>
+                        {isCurrentlyLive ? "🔴 LIVE" : displayDuration}
+                      </span>
+                    )}
+                  </div>
+                  <h3 style={styles.videoTitle}>{video.snippet.title}</h3>
+                </Link>
+              );
+            })
+          ) : (
+            <p style={styles.emptyMsg}>No {activeTab.toLowerCase()} found on this channel.</p>
+          )
         )}
 
         {activeTab === "Search" && (
@@ -217,33 +283,47 @@ function ChannelPage() {
         )}
 
       </div>
+
+      {isFetching && (
+        <div style={{ textAlign: "center", padding: "40px", color: "#aaa" }}>
+          <RefreshCw size={24} style={{ animation: "spin 2s linear infinite", margin: "0 auto" }} />
+          <p>Loading more content...</p>
+        </div>
+      )}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
 const styles = {
   container: { background: "#0f0f0f", minHeight: "100vh", color: "white", position: "relative" },
-  backBtn: { position: "absolute", top: "20px", left: "20px", background: "rgba(0,0,0,0.6)", padding: "10px", borderRadius: "50%", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center" },
+  backBtn: { position: "absolute", top: "20px", left: "20px", background: "rgba(0,0,0,0.6)", padding: "10px", borderRadius: "50%", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(5px)" },
   banner: { height: "200px", backgroundSize: "cover", backgroundPosition: "center", background: "#111" },
   header: { display: "flex", alignItems: "center", gap: "25px", padding: "30px 60px" },
-  avatar: { width: "80px", height: "80px", borderRadius: "50%", border: "2px solid #0f0f0f" },
+  avatar: { width: "80px", height: "80px", borderRadius: "50%", border: "2px solid #333", objectFit: "cover" },
   title: { fontSize: "28px", fontWeight: "bold", margin: 0 },
   followBtn: { padding: "10px 24px", borderRadius: "24px", border: "none", fontWeight: "bold", fontSize: "16px", cursor: "pointer", transition: "0.2s" },
   navBar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 60px", borderBottom: "1px solid #222", flexWrap: "wrap", gap: "20px" },
   tabGroup: { display: "flex", gap: "30px" },
-  tab: { background: "none", border: "none", padding: "15px 0", cursor: "pointer", color: "white", fontSize: "16px", fontWeight: "500" },
+  tab: { background: "none", border: "none", padding: "15px 0", cursor: "pointer", color: "white", fontSize: "16px", fontWeight: "600", transition: "0.2s" },
   searchBox: { display: "flex", alignItems: "center", background: "#222", borderRadius: "20px", padding: "5px 15px", border: "1px solid #333" },
   searchInput: { background: "transparent", border: "none", color: "white", outline: "none", padding: "5px", width: "200px" },
   searchIconBtn: { background: "transparent", border: "none", color: "#aaa", cursor: "pointer", display: "flex", alignItems: "center" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "24px", padding: "40px 60px" },
   videoCard: { textDecoration: "none", color: "white" },
-  thumbnailWrapper: { position: "relative", borderRadius: "12px", overflow: "hidden", aspectRatio: "16/9" },
-  shortsWrapper: { position: "relative", borderRadius: "12px", overflow: "hidden", aspectRatio: "9/16" },
+  thumbnailWrapper: { position: "relative", borderRadius: "12px", overflow: "hidden", aspectRatio: "16/9", background: "#222" },
+  shortsWrapper: { position: "relative", borderRadius: "12px", overflow: "hidden", aspectRatio: "9/16", background: "#222" },
   thumbnail: { width: "100%", height: "100%", objectFit: "cover" },
   duration: { position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", padding: "2px 6px", borderRadius: "4px", fontSize: "12px", fontWeight: "bold" },
-  playlistOverlay: { position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" },
-  videoTitle: { fontSize: "14px", fontWeight: "600", marginTop: "12px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-  emptyMsg: { gridColumn: "1 / -1", textAlign: "center", color: "#666", marginTop: "40px", fontSize: "18px" }
+  liveBadge: { position: "absolute", bottom: "8px", right: "8px", background: "#ff0000", color: "white", padding: "2px 6px", borderRadius: "4px", fontSize: "12px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" },
+  playlistOverlay: { position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "bold", backdropFilter: "blur(2px)" },
+  videoTitle: { fontSize: "15px", fontWeight: "600", marginTop: "12px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.4" },
+  emptyMsg: { gridColumn: "1 / -1", textAlign: "center", color: "#666", marginTop: "40px", fontSize: "16px", fontWeight: "500" }
 };
 
 if (window.innerWidth < 768) {

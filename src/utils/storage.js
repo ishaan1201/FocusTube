@@ -130,3 +130,45 @@ export const deleteNote = (videoId) => {
     localStorage.setItem(NOTES_KEY, JSON.stringify(index));
   }
 };
+
+
+// --- FOCUS TIME TRACKER (THE STOPWATCH) ---
+
+export const logWatchTime = (seconds) => {
+  const today = new Date().toDateString();
+  const usage = JSON.parse(localStorage.getItem("focus_time_log") || "{}");
+  
+  // Add the new seconds to today's total
+  usage[today] = (usage[today] || 0) + seconds;
+  localStorage.setItem("focus_time_log", JSON.stringify(usage));
+};
+
+export const getFocusStats = () => {
+  const usage = JSON.parse(localStorage.getItem("focus_time_log") || "{}");
+  const now = new Date();
+  const todayStr = now.toDateString();
+
+  let totalSecs = 0;
+  let todaySecs = usage[todayStr] || 0;
+  let weeklyData = [0, 0, 0, 0, 0, 0, 0]; 
+
+  for (const [dateStr, secs] of Object.entries(usage)) {
+    totalSecs += secs;
+    const logDate = new Date(dateStr);
+    
+    // Calculate how many days ago this was
+    const diffTime = now.getTime() - logDate.getTime();
+    const diffDays = diffTime / (1000 * 3600 * 24);
+
+    // If it was within the last 7 days, add to the specific day's bucket
+    if (diffDays >= 0 && diffDays < 7) {
+      weeklyData[logDate.getDay()] += (secs / 60); // Convert to minutes for the chart
+    }
+  }
+
+  return {
+    totalMins: Math.round(totalSecs / 60),
+    todayMins: Math.round(todaySecs / 60),
+    weeklyData
+  };
+};

@@ -20,7 +20,14 @@ const useInfiniteScroll = (callback) => {
 
   useEffect(() => {
     if (!isFetching) return;
-    callback().then(() => setIsFetching(false));
+    const executeCallback = async () => {
+      try {
+        await callback();
+      } finally {
+        setIsFetching(false);
+      }
+    };
+    executeCallback();
   }, [isFetching, callback]);
 
   return [isFetching];
