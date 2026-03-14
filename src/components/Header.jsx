@@ -1,22 +1,38 @@
 import { useState } from "react";
-import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX } from "lucide-react";
+import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { loginWithGoogle } from "../services/firebase";
 import GoogleTranslate from "./GoogleTranslate";
 import GlobalAIChat from "./GlobalAIChat";
 
-// 🚀 ADDED: bgVideoId and setBgVideoId to the props
 function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   const [input, setInput] = useState("");
   const [showAIChat, setShowAIChat] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   const handleSearchSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     onSearch(input);
     navigate("/");
+  };
+
+  const startVoiceSearch = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Your browser doesn't support voice recognition. Try Chrome!");
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      onSearch(transcript);
+      navigate("/");
+    };
+    recognition.start();
   };
 
   const handleProfileClick = async () => {
@@ -58,7 +74,6 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
         ) : (
           <div style={styles.logoContainer} onClick={() => { onSearch(""); navigate("/"); }}>
             <h2 style={styles.logo}>FOCUS<span style={styles.logoTube}>TUBE</span></h2>
-            {/* 🚀 ADDED: Powered by YouTube subtext */}
             <span style={styles.poweredBy}>Powered by YouTube</span>
           </div>
         )}
@@ -72,14 +87,15 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
+        <button type="button" onClick={startVoiceSearch} style={{ ...styles.iconBtnBase, color: isListening ? "#ff4444" : "#888", marginRight: "10px" }}>
+          {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+        </button>
         <button type="submit" style={styles.searchBtn}>
           <Search size={18} />
         </button>
       </form>
 
       <div style={styles.actions}>
-        
-        {/* 🎵 ADDED: Global Music Stop Button (Only shows when music is playing) */}
         {bgVideoId && (
           <button 
             onClick={() => setBgVideoId(null)} 
@@ -90,7 +106,6 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
           </button>
         )}
 
-        {/* 🚀 Global AI Chat Bubble */}
         <button 
           onClick={() => setShowAIChat(!showAIChat)} 
           style={{ ...styles.aiToggle, background: showAIChat ? "linear-gradient(135deg, #4285f4, #9b72cb)" : "rgba(255,255,255,0.05)" }}
@@ -136,22 +151,17 @@ const styles = {
   menuBtn: { background: "none", color: "white", border: "none", cursor: "pointer" },
   timerBtn: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 16px", border: "1px solid #333", borderRadius: "20px", cursor: "pointer", minWidth: "120px" },
   timerText: { fontSize: "16px", fontWeight: "bold", fontFamily: "monospace", color: "white" },
-  
-  // 🚀 UPDATED: Logo styles for the subtext
   logoContainer: { cursor: "pointer", minWidth: "150px", display: "flex", flexDirection: "column", justifyContent: "center" },
   logo: { color: "#ff0000", margin: 0, fontWeight: "900", letterSpacing: "-1px", fontSize: "22px", lineHeight: "1" },
   logoTube: { color: "var(--text-primary)" },
   poweredBy: { fontSize: "9px", color: "#888", letterSpacing: "0.5px", marginTop: "2px", textTransform: "uppercase", fontWeight: "600" },
-
-  searchContainer: { flex: 0.5, display: "flex", background: "#121212", borderRadius: "24px", border: "1px solid #333", overflow: "hidden", height: "40px" },
+  searchContainer: { flex: 0.5, display: "flex", background: "#121212", borderRadius: "24px", border: "1px solid #333", overflow: "hidden", height: "40px", alignItems: "center" },
   searchInput: { flex: 1, background: "transparent", border: "none", padding: "0 20px", color: "var(--text-primary)", outline: "none", fontSize: "14px" },
-  searchBtn: { background: "#222", border: "none", color: "#aaa", padding: "0 20px", cursor: "pointer", transition: "color 0.2s" },
+  searchBtn: { background: "#222", border: "none", color: "#aaa", padding: "0 20px", height: "100%", cursor: "pointer", transition: "color 0.2s" },
+  iconBtnBase: { background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 },
   actions: { display: "flex", alignItems: "center", gap: "22px" },
   icon: { cursor: "pointer", color: "#aaa", transition: "color 0.2s" },
-  
-  // 🎵 ADDED: Music button style
   musicBtn: { background: "rgba(255, 68, 68, 0.1)", border: "1px solid rgba(255, 68, 68, 0.3)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "0.2s" },
-  
   aiToggle: { width: "40px", height: "40px", borderRadius: "50%", border: "1px solid #333", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "0.3s all ease", padding: 0 },
   avatar: { width: "34px", height: "34px", borderRadius: "50%", border: "2px solid #333", objectFit: "cover", transition: "border-color 0.2s" },
   loginBtn: { display: "flex", alignItems: "center", gap: "8px", background: "transparent", color: "#3ea6ff", border: "1px solid #333", padding: "6px 14px", borderRadius: "20px", cursor: "pointer", fontWeight: "600", fontSize: "14px" }

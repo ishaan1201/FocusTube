@@ -3,7 +3,7 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import YouTube from "react-youtube";
 import {
   ThumbsUp, Share2, Bookmark, Check, ChevronDown, ChevronUp,
-  RotateCcw, FileText, Save, Sparkles, Send, Bot, Maximize, Minimize, ArrowLeft, Trash2, Paperclip, X, Download
+  RotateCcw, FileText, Save, Sparkles, Send, Bot, Maximize, Minimize, ArrowLeft, Trash2, Paperclip, X, Download, Mic, MicOff
 } from "lucide-react";
 import { fetchVideoDetails, fetchChannelDetails } from "../services/youtube";
 import { toggleVault, isInVault, saveNote, getNoteForVideo, logWatchTime } from "../utils/storage";
@@ -49,11 +49,10 @@ function VideoPage() {
 
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState(0);
   
-  // 🚀 NEW: File Attachment State
   const [attachment, setAttachment] = useState(null); 
-  // 🚀 NEW: State to hold the image when clicked
   const [expandedImage, setExpandedImage] = useState(null); 
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -78,8 +77,6 @@ function VideoPage() {
               };
               if (existingIdx > -1) { history[existingIdx] = { ...history[existingIdx], ...entry }; } 
               else { history.unshift(entry); }
-              
-              // Prevent LocalStorage Quota Exceeded by limiting history
               try { localStorage.setItem("focus_history", JSON.stringify(history.slice(0, 50))); } catch(e) {}
             }
           } catch (err) {}
@@ -89,22 +86,15 @@ function VideoPage() {
     return () => clearInterval(interval);
   }, [video, id]);
 
-  // 🚀 EMPIRE INDEXER: Auto-save chat and add to the global AI Insights list
   useEffect(() => {
     if (activeTab === "ai") {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     try {
-      // 1. Save the actual chat messages for this video
       localStorage.setItem(`chat_${id}`, JSON.stringify(chatMessages));
-
-      // 2. If a real conversation has started (more than just the AI greeting), index it!
-      // We check if video exists so we can grab the title and thumbnail for the Vault card.
       if (video && chatMessages.length > 1) {
         const chatIndex = JSON.parse(localStorage.getItem("focus_chat_index") || "[]");
-
-        // If this video isn't in the index yet, add it to the very top
         if (!chatIndex.find(v => v.id === id)) {
           chatIndex.unshift({
             id,
@@ -115,17 +105,15 @@ function VideoPage() {
           });
           localStorage.setItem("focus_chat_index", JSON.stringify(chatIndex));
         } else {
-          // Optional: Update the timestamp so active chats move to the top
           const updatedIndex = chatIndex.map(item =>
             item.id === id ? { ...item, timestamp: Date.now() } : item
           );
-          // Sort to keep newest at top
           updatedIndex.sort((a, b) => b.timestamp - a.timestamp);
           localStorage.setItem("focus_chat_index", JSON.stringify(updatedIndex));
         }
       }
     } catch (e) {
-      console.warn("Storage quota exceeded. Chat might not save permanently.");
+      console.warn("Storage quota exceeded.");
     }
   }, [chatMessages, activeTab, id, video]);
 
@@ -137,7 +125,6 @@ function VideoPage() {
     }
   };
 
-  // 🚀 NEW: Handle File Selection & Base64 Conversion
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -153,32 +140,37 @@ function VideoPage() {
     reader.readAsDataURL(file);
   };
 
-  // 🚀 THE FIX: Force Cross-Origin Image Downloads
   const handleImageDownload = async (e, imgUrl) => {
-    e.preventDefault();  // Stop it from navigating away
-    e.stopPropagation(); // Stop the lightbox from closing
-
+    e.preventDefault();
+    e.stopPropagation();
     try {
-      // Fetch the image as raw data
       const response = await fetch(imgUrl);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-
-      // Create a temporary hidden link and click it
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = imgUrl.split('/').pop().split('?')[0] || 'focus-ai-image.jpg';
       document.body.appendChild(link);
       link.click();
-
-      // Clean up
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      // If the external server completely blocks hidden downloads (CORS), fallback to a new tab
-      console.warn("Server blocked direct download, opening raw image instead.");
       window.open(imgUrl, '_blank');
     }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Browser not supported");
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setChatInput(transcript);
+    };
+    recognition.start();
   };
 
   const handleSendMessage = async () => {
@@ -201,13 +193,12 @@ function VideoPage() {
     setAttachment(null);
     setIsTyping(true);
 
-    // 🚀 THE FIX: We pass 'chatMessages' right before the attachment!
     const aiText = await getAIResponse(
       video.snippet.title,
       video.snippet.description,
       currentQuery,
       noteText,
-      chatMessages, // 🧠 Injecting the memory here!
+      chatMessages,
       currentAttachment
     );
 
@@ -280,7 +271,6 @@ function VideoPage() {
         </div>
       )}
 
-      {/* 🚀 FOCUS MODE EXIT BUTTON */}
       {focusMode && (
         <button onClick={() => setFocusMode(false)} style={styles.exitFocusBtn}>
           <Minimize size={18} /> Exit Focus Mode
@@ -351,7 +341,6 @@ function VideoPage() {
                 <p style={styles.descText}>
                   {(() => {
                     const text = descExpanded ? video.snippet.description : video.snippet.description.slice(0, 180) + "...";
-                    // 🚀 REGEX: Identify URLs and convert them into clickable <a> tags
                     const urlRegex = /(https?:\/\/[^\s]+)/g;
                     return text.split(urlRegex).map((part, i) => {
                       if (part.match(urlRegex)) {
@@ -391,13 +380,10 @@ function VideoPage() {
                 <div style={styles.chatContainer}>
                   <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: "10px" }}><button onClick={clearChat} style={styles.clearBtn}><Trash2 size={14} /> Clear</button></div>
                   
-                  {/* 🚀 THE NEW CHAT FEED WITH MARKDOWN & FILES */}
                   <div style={styles.chatFeed}>
                     {chatMessages.map((msg, idx) => (
                       <div key={idx} style={{ ...styles.chatBubble, ...(msg.role === "user" ? styles.userBubble : styles.aiBubble) }}>
                         {msg.role === "ai" && <div style={{ color: "#2196f3", fontSize: "11px", fontWeight: "900", marginBottom: "6px" }}>FOCUS AI</div>}
-                        
-                        {/* Render Uploaded Image/File */}
                         {msg.attachment && (
                           <div style={{ marginBottom: "8px" }}>
                             {msg.attachment.mimeType.startsWith("image/") ? (
@@ -410,19 +396,16 @@ function VideoPage() {
                           </div>
                         )}
 
-                        {/* Render Text with Markdown, KaTeX & Custom Images */}
                         <div className="markdown-body">
                           <ReactMarkdown
                             remarkPlugins={[remarkMath]}
                             rehypePlugins={[rehypeKatex]}
                             components={{
-                              // 🚀 NEW: Force links to open in a new tab
                               a: ({ node, children, ...props }) => (
                                 <a {...props} target="_blank" rel="noopener noreferrer">
                                   {children}
                                 </a>
                               ),
-                              // 🚀 FIX: Prevent hydration error (div inside p) by using span
                               img: ({ node, src, alt, ...props }) => (
                                 <span style={{ position: "relative", display: "inline-block", margin: "10px 0" }}>
                                   <img
@@ -433,7 +416,6 @@ function VideoPage() {
                                     onClick={() => setExpandedImage(src)}
                                     title="Click to expand"
                                   />
-                                  {/* Quick Download Button on Thumbnail */}
                                   <button
                                     onClick={(e) => handleImageDownload(e, src)}
                                     style={{ position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", padding: "6px", borderRadius: "8px", color: "#fff", display: "flex", border: "none", cursor: "pointer" }}
@@ -454,7 +436,6 @@ function VideoPage() {
                     <div ref={chatEndRef} />
                   </div>
 
-                  {/* 🚀 THE NEW INPUT BOX WITH ATTACHMENTS */}
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
                     {attachment && (
                       <div style={styles.attachmentPreview}>
@@ -471,6 +452,10 @@ function VideoPage() {
                       </button>
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} accept="image/*,.pdf,.txt" />
                       
+                      <button onClick={startListening} style={{ background: "none", border: "none", color: isListening ? "#ff4444" : "#888", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                        {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                      </button>
+
                       <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} style={styles.chatInput} placeholder="Ask FocusAI anything..." />
                       <button onClick={handleSendMessage} style={styles.sendBtn}><Send size={18}/></button>
                     </div>
@@ -482,7 +467,6 @@ function VideoPage() {
         </div>
       </div>
 
-      {/* 🚀 THE LIGHTBOX MODAL: Renders when an image is clicked */}
       {expandedImage && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}
@@ -491,13 +475,11 @@ function VideoPage() {
           <button style={{ position: "absolute", top: "30px", right: "40px", background: "none", border: "none", color: "white", cursor: "pointer" }}>
             <X size={32} />
           </button>
-
           <img
             src={expandedImage}
             style={{ maxWidth: "90%", maxHeight: "80vh", borderRadius: "16px", objectFit: "contain", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
             alt="Expanded view"
           />
-
           <div style={{ marginTop: "24px", display: "flex", gap: "15px" }} onClick={(e) => e.stopPropagation()}>
             <button
               onClick={(e) => handleImageDownload(e, expandedImage)}
@@ -512,7 +494,6 @@ function VideoPage() {
   );
 }
 
-// Global CSS injection to handle markdown spacing nicely inside chat bubbles
 const styleSheet = document.createElement("style");
 styleSheet.innerText = `
   .markdown-body p { margin: 0 0 8px 0; }
@@ -520,7 +501,6 @@ styleSheet.innerText = `
   .markdown-body ul, .markdown-body ol { margin: 4px 0 8px 20px; padding: 0; }
   .markdown-body li { margin-bottom: 4px; }
   .markdown-body a { color: #4caf50; text-decoration: underline; }
-  /* 🚀 THE FIX: Force AI images to fit perfectly inside the chat bubble */
   .markdown-body img { max-width: 100%; height: auto; border-radius: 12px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1); }
 `;
 document.head.appendChild(styleSheet);
@@ -550,7 +530,6 @@ const styles = {
   descBox: { background: "#0a0a0a", padding: "20px", borderRadius: "18px", border: "1px solid #1a1a1a" },
   descText: { margin: 0, whiteSpace: "pre-wrap", fontSize: "14px", lineHeight: "1.7", color: "#fff" },
   showMoreBtn: { background: "none", border: "none", color: "#fff", marginTop: "12px", cursor: "pointer", fontWeight: "700" },
-
   sidePanel: { flex: 1.2, minWidth: "450px", height: "calc(100vh - 100px)", position: "sticky", top: "30px" },
   panelCard: { background: "#0a0a0a", borderRadius: "24px", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid #1a1a1a" },
   tabHeader: { display: "flex", background: "#000", padding: "8px", gap: "8px" },
@@ -559,14 +538,11 @@ const styles = {
   textArea: { width: "100%", flex: 1, background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: "18px", padding: "20px", color: "#fff", fontSize: "15px", resize: "none", outline: "none", lineHeight: "1.8" },
   notesFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" },
   saveBtn: { background: "#ff9800", color: "black", padding: "12px 24px", borderRadius: "14px", border: "none", cursor: "pointer", fontWeight: "900" },
-  
   chatContainer: { display: "flex", flexDirection: "column", height: "100%" },
   chatFeed: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px" },
   chatBubble: { maxWidth: "88%", padding: "14px 18px", fontSize: "14.5px", lineHeight: "1.6", color: "#fff", wordBreak: "break-word" },
   userBubble: { alignSelf: "flex-end", background: "#2196f3", borderRadius: "22px 22px 4px 22px", boxShadow: "0 8px 16px rgba(33, 150, 243, 0.2)" },
   aiBubble: { alignSelf: "flex-start", background: "#1a1a1a", borderRadius: "22px 22px 22px 4px", border: "1px solid #222" },
-  
-  // 🚀 New Attachment UI
   attachmentPreview: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#222", padding: "8px 12px", borderRadius: "10px", border: "1px solid #333" },
   chatInputBox: { display: "flex", gap: "12px", padding: "10px", background: "#0d0d0d", borderRadius: "18px", border: "1px solid #1a1a1a", alignItems: "center" },
   chatInput: { flex: 1, background: "transparent", border: "none", padding: "8px", color: "white", outline: "none", fontSize: "14px" },
