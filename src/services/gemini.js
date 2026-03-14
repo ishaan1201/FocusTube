@@ -15,6 +15,7 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
     .map(msg => `${msg.role === 'ai' ? 'FocusAI' : 'User'}: ${msg.text}`)
     .join('\n\n');
 
+  // 🚀 UPDATED PROMPT: Explicitly instructs AI to use HTML for note syncing
   const prompt = `
     You are FocusAI, a smart, witty, and authentic study partner. 
     VIDEO TITLE: "${videoTitle}"
@@ -35,9 +36,13 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
     - 🌐 WEB SEARCH (CRITICAL): If the user asks for links or live info.
       * You MUST output EXACTLY: [SEARCH_WEB: your search term]
 
-    - FORMATTING: Use Markdown. 
-    - MATH: Use LaTeX ($ for inline, $$ for block).
-    - NOTE SYNC: If the user wants to save something, end the response with: [UPDATED_NOTE] content.
+    - CHAT FORMATTING: Use Markdown in your normal chat replies to the user.
+    - MATH: Use LaTeX ($ for inline, $$ for block) in chat.
+    
+    - 📝 NOTE SYNC (CRITICAL UPDATE): If the user asks you to save, write, or update their notes, you MUST output the tag [UPDATED_NOTE] followed by the content.
+      HOWEVER, the notes editor uses a Rich Text WYSIWYG editor. You MUST format the text AFTER the [UPDATED_NOTE] tag using strict HTML tags, NOT Markdown!
+      Use tags like <h1>, <h2>, <p>, <strong>, <em>, <ul><li>, <ol><li>.
+      If you want to add an image to the notes, simply write [SEARCH_IMAGE: your search term] inside the HTML, and I will convert it for you!
 
     🧠 PREVIOUS CONVERSATION HISTORY:
     ${historyTranscript || "This is the start of the conversation."}
@@ -65,7 +70,7 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
       // 🛑 INTERCEPTORS: WEB & IMAGES
       if (SERP_API_KEY) {
         
-        // 🚀 IMAGE INTERCEPTOR
+        // 🚀 SMART IMAGE INTERCEPTOR
         const imageRegex = /\[\s*SEARCH_IMAGE\s*:\s*(.*?)\s*\]/gi;
         const imageMatches = [...aiText.matchAll(imageRegex)];
 
@@ -83,7 +88,19 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
 
               if (data.images_results && data.images_results.length > 0) {
                 const realImageUrl = data.images_results[0].original; 
-                aiText = aiText.replace(fullTag, `![${query}](${realImageUrl})`);
+                
+                // 🧠 Context check: Is this image going to the Chat or the Notes Editor?
+                const noteTagIndex = aiText.indexOf("[UPDATED_NOTE]");
+                const isForNotes = noteTagIndex !== -1 && aiText.indexOf(fullTag) > noteTagIndex;
+
+                if (isForNotes) {
+                  // Output pure HTML for the Quill Editor!
+                  // 🚀 FIXED: AI now outputs a reasonable default width (300px) instead of giant images!
+                  aiText = aiText.replace(fullTag, `<img src="${realImageUrl}" alt="${query}" width="300" style="border-radius: 8px;" />`);
+                } else {
+                  // Output Markdown for the Chat Bubble
+                  aiText = aiText.replace(fullTag, `![${query}](${realImageUrl})`);
+                }
               } else {
                 aiText = aiText.replace(fullTag, `*(No image found for "${query}")*`);
               }
