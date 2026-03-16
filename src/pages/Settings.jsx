@@ -22,7 +22,7 @@ function SettingsPage({ theme, setTheme }) {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.title}>App Settings</h1>
-        <p style={{ color: "#888" }}>Optimize your FocusTube environment</p>
+        <p style={{ color: "#888" }}>Optimize your Curio environment</p>
       </header>
 
       {/* --- APPEARANCE SECTION --- */}

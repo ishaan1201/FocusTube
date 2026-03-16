@@ -55,7 +55,7 @@ function NotesPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${note.videoTitle} - FocusTube Notes</title>
+          <title>${note.videoTitle} - Curio Notes</title>
           <style>
             body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; color: #000; line-height: 1.6; max-width: 800px; margin: 0 auto; }
             img { max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0; }

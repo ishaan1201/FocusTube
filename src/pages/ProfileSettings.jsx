@@ -48,7 +48,7 @@ function Settings() {
         return (
             <div style={styles.container}>
                 <div style={styles.loginCard}>
-                    <h1>Sign In to FocusTube</h1>
+                    <h1>Sign In to Curio</h1>
                     <p style={{ color: "#aaa", marginBottom: "20px" }}>Save your notes, history, and preferences to the cloud.</p>
                     <button onClick={handleLogin} style={styles.loginBtn}>
                         <img src="https://www.google.com/favicon.ico" width="20" style={{ marginRight: "10px" }} />

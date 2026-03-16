@@ -94,7 +94,7 @@ function Classroom() {
   return (
     <div style={styles.pageContainer}>
       <div style={styles.heroSection}>
-        <h1 style={styles.gradientTitle}>FocusTube Academy</h1>
+        <h1 style={styles.gradientTitle}>Curio Academy</h1>
         <p style={{ color: "#aaa", margin: 0 }}>Distraction-free learning environment.</p>
       </div>
 

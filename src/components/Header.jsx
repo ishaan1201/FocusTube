@@ -73,7 +73,7 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
           </button>
         ) : (
           <div style={styles.logoContainer} onClick={() => { onSearch(""); navigate("/"); }}>
-            <h2 style={styles.logo}>FOCUS<span style={styles.logoTube}>TUBE</span></h2>
+            <h2 style={styles.logo}>Curio</h2>
             <span style={styles.poweredBy}>Powered by YouTube</span>
           </div>
         )}
@@ -152,8 +152,7 @@ const styles = {
   timerBtn: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 16px", border: "1px solid #333", borderRadius: "20px", cursor: "pointer", minWidth: "120px" },
   timerText: { fontSize: "16px", fontWeight: "bold", fontFamily: "monospace", color: "white" },
   logoContainer: { cursor: "pointer", minWidth: "150px", display: "flex", flexDirection: "column", justifyContent: "center" },
-  logo: { color: "#ff0000", margin: 0, fontWeight: "900", letterSpacing: "-1px", fontSize: "22px", lineHeight: "1" },
-  logoTube: { color: "var(--text-primary)" },
+  logo: { color: "#4F46E5", margin: 0, fontWeight: "800", letterSpacing: "-0.5px", fontSize: "22px", lineHeight: "1", fontFamily: "'Syne', 'Inter', sans-serif" },
   poweredBy: { fontSize: "9px", color: "#888", letterSpacing: "0.5px", marginTop: "2px", textTransform: "uppercase", fontWeight: "600" },
   searchContainer: { flex: 0.5, display: "flex", background: "#121212", borderRadius: "24px", border: "1px solid #333", overflow: "hidden", height: "40px", alignItems: "center" },
   searchInput: { flex: 1, background: "transparent", border: "none", padding: "0 20px", color: "var(--text-primary)", outline: "none", fontSize: "14px" },

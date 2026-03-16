@@ -13,7 +13,7 @@ const getMockVideos = (count, type = 'video') => {
     id: { videoId: `mock_${type}_${i}` },
     snippet: {
       title: `Mock ${type} Title ${i + 1} (API Quota Exceeded)`,
-      channelTitle: "FocusTube Academy",
+      channelTitle: "Curio Academy",
       thumbnails: { high: { url: `https://picsum.photos/seed/${i}/640/360` } },
       description: "Placeholder due to API quota limit.",
       liveBroadcastContent: type === 'live' ? 'live' : 'none',

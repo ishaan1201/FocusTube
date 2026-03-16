@@ -41,7 +41,7 @@ export const loginWithGoogle = async () => {
         name: user.displayName,
         email: user.email,
         photoURL: user.photoURL,
-        bio: "Learning effectively on FocusTube.",
+        bio: "Learning effectively on Curio.",
         createdAt: new Date().toISOString()
       });
     }

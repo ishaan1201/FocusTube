@@ -7,7 +7,7 @@ const RANDOM_MSGS = [
   "Wow, this is actually super helpful!",
   "Can you explain that part again?",
   "Greetings from India! 🇮🇳",
-  "FocusTube is changing my study game.",
+  "Curio is changing my study game.",
   "Is this recorded or live?",
   "Love the explanation, very clear.",
   "Python is definitely the way to go.",

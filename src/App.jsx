@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Coffee, Brain, X } from "lucide-react";
 import Header from "./components/Header";
@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import Home from "./pages/Home";
 import VideoPage from "./pages/VideoPage";
 import Vault from "./pages/Vault";
+import LandingPage from "./pages/LandingPage";
 import SavedPage from "./pages/SavedPage";
 import ShortsPage from "./pages/ShortsPage";
 import Classroom from "./pages/Classroom";
@@ -62,7 +63,7 @@ function App() {
       setShowSessionDone(true);
       new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
       if (Notification.permission === "granted") {
-        new Notification("FocusTube", { body: "⏰ Time's up! Great session." });
+        new Notification("Curio", { body: "⏰ Time's up! Great session." });
       }
     }
     return () => clearInterval(interval);
@@ -114,95 +115,135 @@ function App() {
     }
   }, [theme]);
 
+  const timerProps = { timeLeft, isActive, sessionStarted, setIsActive };
+
   return (
     <Router>
-      <div style={{ color: "white", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <AppShell
+        isSidebarOpen={isSidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        focusMode={focusMode}
+        setFocusMode={setFocusMode}
+        activeCategory={activeCategory}
+        setActiveCategory={setActiveCategory}
+        timerProps={timerProps}
+        timeLeft={timeLeft}
+        setTimeLeft={setTimeLeft}
+        isActive={isActive}
+        setIsActive={setIsActive}
+        setSessionStarted={setSessionStarted}
+        bgVideoId={bgVideoId}
+        setBgVideoId={setBgVideoId}
+        showSessionDone={showSessionDone}
+        setShowSessionDone={setShowSessionDone}
+        theme={theme}
+        setTheme={setTheme}
+      />
+    </Router>
+  );
+}
 
+function AppShell({
+  isSidebarOpen, setSidebarOpen, searchQuery, setSearchQuery,
+  focusMode, setFocusMode, activeCategory, setActiveCategory,
+  timerProps, timeLeft, setTimeLeft, isActive, setIsActive,
+  setSessionStarted, bgVideoId, setBgVideoId,
+  showSessionDone, setShowSessionDone, theme, setTheme,
+}) {
+  const location = useLocation();
+  const isLanding = location.pathname === "/";
+
+  return (
+    <div style={{ color: "white", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+
+      {!isLanding && (
         <Header
           toggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
           onSearch={(q) => setSearchQuery(q)}
-          timer={{ timeLeft, isActive, sessionStarted, setIsActive }}
-          bgVideoId={bgVideoId}        
-          setBgVideoId={setBgVideoId}  
+          timer={timerProps}
+          bgVideoId={bgVideoId}
+          setBgVideoId={setBgVideoId}
         />
+      )}
 
-        <div style={{ display: "flex", flex: 1 }}>
+      <div style={{ display: "flex", flex: 1 }}>
+        {!isLanding && (
           <Sidebar
             open={isSidebarOpen}
             onClose={() => setSidebarOpen(false)}
             focusMode={focusMode}
             activeCategory={activeCategory}
           />
-
-          <main style={{ flex: 1 }}>
-            <Routes>
-              <Route path="/" element={<Home query={searchQuery} />} />
-              <Route path="/category/:slug" element={
-                <CategoryPage
-                  focusMode={focusMode}
-                  setFocusMode={setFocusMode}
-                  activeCategory={activeCategory}
-                  setActiveCategory={setActiveCategory}
-                />
-              } />
-              <Route path="/video/:id" element={<VideoPage />} />
-              <Route path="/channel/:id" element={<ChannelPage />} />
-              <Route path="/vault" element={<Vault />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/shorts/:id" element={<ShortsPlayer />} />
-              <Route path="/notes" element={<NotePage />} />
-              <Route path="/classroom" element={<Classroom />} />
-              <Route path="/liked" element={<LikedPage />} />
-              <Route path="/saved" element={<SavedPage />} />
-              <Route path="/live" element={<LivePage />} />
-              <Route path="/live/:id" element={<LivePlayer />} />
-              <Route path="/playlist/:id" element={<PlaylistPage />} />
-              <Route path="/shorts" element={<ShortsPage />} />
-
-              <Route path="/focus" element={<FocusPage
-                globalTime={timeLeft}
-                setGlobalTime={setTimeLeft}
-                globalActive={isActive}
-                setGlobalActive={setIsActive}
-                setSessionStarted={setSessionStarted}
-                bgVideoId={bgVideoId}
-                setBgVideoId={setBgVideoId}
-                ambienceTracks={AMBIENCE_TRACKS}
-              />} />
-
-              <Route path="/settings" element={<Settings theme={theme} setTheme={setTheme} />} />
-              <Route path="/profile" element={<ProfileSettings />} />
-              <Route path="/insights" element={<AiInsights />} />
-            </Routes>
-          </main>
-        </div>
-
-        {bgVideoId && (
-          <div style={{ display: "none" }}>
-            <iframe width="1" height="1" src={`https://www.youtube.com/embed/${bgVideoId}?autoplay=1&loop=1&playlist=${bgVideoId}&controls=0`} title="Global Ambience" allow="autoplay" />
-          </div>
         )}
 
-        {showSessionDone && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modal}>
-              <button onClick={() => setShowSessionDone(false)} style={styles.closeBtn}><X size={20} /></button>
-              <h2 style={{ fontSize: "24px", marginBottom: "10px" }}>Session Complete! 🎉</h2>
-              <p style={{ color: "#aaa", marginBottom: "20px" }}>Great work staying focused. What would you like to do next?</p>
-              <div style={styles.modalActions}>
-                <button onClick={() => { setTimeLeft(5 * 60); setIsActive(true); setSessionStarted(true); setShowSessionDone(false); }} style={styles.breakBtn}>
-                  <Coffee size={18} /> Take a Break
-                </button>
-                <button onClick={() => { setTimeLeft(25 * 60); setIsActive(true); setSessionStarted(true); setShowSessionDone(false); }} style={styles.focusBtn}>
-                  <Brain size={18} /> Start New Focus
-                </button>
-              </div>
+        <main style={{ flex: 1 }}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/classroom" element={<Home query={searchQuery} />} />
+            <Route path="/category/:slug" element={
+              <CategoryPage
+                focusMode={focusMode}
+                setFocusMode={setFocusMode}
+                activeCategory={activeCategory}
+                setActiveCategory={setActiveCategory}
+              />
+            } />
+            <Route path="/video/:id" element={<VideoPage />} />
+            <Route path="/channel/:id" element={<ChannelPage />} />
+            <Route path="/vault" element={<Vault />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/shorts/:id" element={<ShortsPlayer />} />
+            <Route path="/notes" element={<NotePage />} />
+            <Route path="/liked" element={<LikedPage />} />
+            <Route path="/saved" element={<SavedPage />} />
+            <Route path="/live" element={<LivePage />} />
+            <Route path="/live/:id" element={<LivePlayer />} />
+            <Route path="/playlist/:id" element={<PlaylistPage />} />
+            <Route path="/shorts" element={<ShortsPage />} />
+            <Route path="/focus" element={<FocusPage
+              globalTime={timeLeft}
+              setGlobalTime={setTimeLeft}
+              globalActive={isActive}
+              setGlobalActive={setIsActive}
+              setSessionStarted={setSessionStarted}
+              bgVideoId={bgVideoId}
+              setBgVideoId={setBgVideoId}
+              ambienceTracks={AMBIENCE_TRACKS}
+            />} />
+            <Route path="/settings" element={<Settings theme={theme} setTheme={setTheme} />} />
+            <Route path="/profile" element={<ProfileSettings />} />
+            <Route path="/insights" element={<AiInsights />} />
+          </Routes>
+        </main>
+      </div>
+
+      {bgVideoId && (
+        <div style={{ display: "none" }}>
+          <iframe width="1" height="1" src={`https://www.youtube.com/embed/${bgVideoId}?autoplay=1&loop=1&playlist=${bgVideoId}&controls=0`} title="Global Ambience" allow="autoplay" />
+        </div>
+      )}
+
+      {showSessionDone && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <button onClick={() => setShowSessionDone(false)} style={styles.closeBtn}><X size={20} /></button>
+            <h2 style={{ fontSize: "24px", marginBottom: "10px" }}>Session Complete! 🎉</h2>
+            <p style={{ color: "#aaa", marginBottom: "20px" }}>Great work staying focused. What would you like to do next?</p>
+            <div style={styles.modalActions}>
+              <button onClick={() => { setTimeLeft(5 * 60); setIsActive(true); setSessionStarted(true); setShowSessionDone(false); }} style={styles.breakBtn}>
+                <Coffee size={18} /> Take a Break
+              </button>
+              <button onClick={() => { setTimeLeft(25 * 60); setIsActive(true); setSessionStarted(true); setShowSessionDone(false); }} style={styles.focusBtn}>
+                <Brain size={18} /> Start New Focus
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
-    </Router>
+    </div>
   );
 }
 
