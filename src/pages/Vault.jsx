@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Flame, Clock, Calendar, StickyNote, MessageSquare, History, Heart, Bookmark, Brain, Zap, TrendingUp } from "lucide-react";
+import { Flame, Clock, Calendar, StickyNote, MessageSquare, History, Heart, Bookmark, Brain, Zap, TrendingUp, Loader2 } from "lucide-react";
 import { getFocusStats } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
@@ -14,6 +14,44 @@ function Vault() {
     weeklyData: [0, 0, 0, 0, 0, 0, 0]
   });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // FETCH FROM CLOUD ON MOUNT
+  useEffect(() => {
+    const fetchCloudStats = async () => {
+      if (!user) {
+        setInitialLoading(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("analytics")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+
+        if (data && !error) {
+          // Merge logic: Take the max of local and cloud to ensure no progress is lost
+          const local = getFocusStats();
+          const merged = {
+            totalMins: Math.max(local.totalMins, data.total_mins),
+            todayMins: local.todayMins, // Today's minutes are usually more accurate locally
+            weeklyData: local.weeklyData.map((mins, i) => Math.max(mins, data.weekly_data[i] || 0))
+          };
+          setStats(merged);
+        } else {
+          setStats(getFocusStats());
+        }
+      } catch (err) {
+        setStats(getFocusStats());
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    fetchCloudStats();
+  }, [user]);
 
   const syncToSupabase = useCallback(async (currentStats) => {
     if (!user || isSyncing) return;
@@ -32,40 +70,37 @@ function Vault() {
     }
   }, [user, isSyncing]);
 
-  // LIVE TRACKING & INITIAL LOAD
+  // LIVE TRACKING
   useEffect(() => {
+    if (initialLoading) return;
+
     const refreshStats = () => {
       const newStats = getFocusStats();
       setStats(newStats);
       return newStats;
     };
 
-    const initialStats = refreshStats();
-    if (user) syncToSupabase(initialStats);
-
     const interval = setInterval(() => {
       const updated = refreshStats();
       if (user) syncToSupabase(updated);
-    }, 10000); // Sync every 10s to be polite to API
+    }, 15000); // Sync every 15s to be efficient
 
     return () => clearInterval(interval);
-  }, [user, syncToSupabase]);
+  }, [user, initialLoading, syncToSupabase]);
 
   const getProductivityScore = () => {
     const total = stats.totalMins;
     const week = stats.weeklyData;
     const consistency = week.filter((d) => d > 0).length / 7;
-    // Base score on 300 mins target * consistency factor
     return Math.min(100, Math.round((total / 300) * 100 * consistency)) || 0;
   };
 
   const getStreak = () => {
     let streak = 0;
     const today = new Date().getDay();
-    // Check backwards from today in weekly data
     for (let i = today; i >= 0; i--) {
       if (stats.weeklyData[i] > 0) streak++;
-      else if (i !== today) break; // Allow 0 for today if they haven't started
+      else if (i !== today) break;
     }
     return streak;
   };
@@ -80,12 +115,20 @@ function Vault() {
 
   const formatHrsMins = (mins) => {
     const h = Math.floor(mins / 60);
-    const m = mins % 60;
+    const m = Math.round(mins % 60);
     return `${h}h ${m}m`;
   };
 
   const maxWeeklyMins = Math.max(...stats.weeklyData, 60);
   const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="animate-spin text-purple-500" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -170,7 +213,6 @@ function Vault() {
   );
 }
 
-// Reusable Nav Component for Hover effects
 const NavBox = ({ to, icon, label, bg }) => (
   <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
     <Link to={to} style={styles.boxBtn}>
