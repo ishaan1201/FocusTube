@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    allowedHosts: ['5fd2-122-161-69-21.ngrok-free.app'],
-  },
+  // 🚀 Add this define block to polyfill process.env
+  // This prevents 'process is not defined' errors from certain Supabase/SSR packages
+  define: {
+    'process.env': {}
+  }
 })
