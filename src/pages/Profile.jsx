@@ -61,34 +61,54 @@ export default function Profile() {
     setAuthError("");
 
     try {
-      // 1. Attach email and password to the anonymous UUID
+      // 🚀 Documentation-Aligned Flow:
+      // 1. Link email identity first
       const { data, error: upgradeError } = await supabase.auth.updateUser({
         email: upgradeEmail,
-        password: upgradePassword,
+        password: upgradePassword, // Pass both to attempt full conversion
+        data: { full_name: upgradeName }
       });
 
       if (upgradeError) {
         if (upgradeError.status === 429) {
-          setCooldown(60); // 1 minute lockout
-          throw new Error("Supabase email rate limit exceeded. Please wait 60 seconds before trying again.");
+          setCooldown(60);
+          throw new Error("Email rate limit exceeded. Please wait 60s.");
+        }
+        // If email already exists, we should suggest signing in
+        if (upgradeError.message.includes("already registered")) {
+          throw new Error("This email is already linked to an account. Please sign in instead.");
         }
         throw upgradeError;
       }
 
-      // 2. Update the profile table with their new username
-      const { error: profileError } = await supabase
+      // 2. Update profiles table
+      await supabase
         .from("profiles")
-        .update({ full_name: upgradeName, role: 'user' })
+        .update({ 
+          full_name: upgradeName, 
+          role: 'user',
+          updated_at: new Date().toISOString()
+        })
         .eq("id", user.id);
 
-      if (profileError) throw profileError;
-
-      alert("Account upgraded! Check your email for a verification link. ☁️");
+      alert("Verification email sent! Click the link to finalize your cloud account. ☁️");
       await refreshProfile();
-      window.location.reload(); 
+      navigate("/");
     } catch (error) {
-      console.error(error);
-      alert(error.message || "Failed to upgrade account.");
+      console.error("Upgrade Error:", error);
+      setAuthError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLinkOAuth = async (provider) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.linkIdentity({ provider });
+      if (error) throw error;
+    } catch (err) {
+      setAuthError(err.message);
     } finally {
       setLoading(false);
     }
@@ -232,9 +252,28 @@ export default function Profile() {
 
             {/* UPGRADE FORM PANEL */}
             <div className="bg-zinc-900/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-              <h2 className="text-2xl font-bold mb-6">Create Account</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Create Account</h2>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleLinkOAuth('google')}
+                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                    title="Link Google Account"
+                  >
+                    <Chrome size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleLinkOAuth('github')}
+                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
+                    title="Link GitHub Account"
+                  >
+                    <Github size={16} />
+                  </button>
+                </div>
+              </div>
+
               {authError && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs font-bold flex items-center gap-3">
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                   <AlertTriangle size={16} />
                   {authError}
                 </div>
