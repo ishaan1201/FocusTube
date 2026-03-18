@@ -50,11 +50,21 @@
 }
 
 .glass-card {
-  @apply bg-surface/50 backdrop-blur-md border border-border/50 rounded-2xl;
+  background-color: rgb(var(--bg-surface) / 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(var(--border-subtle) / 0.5);
+  border-radius: 1rem;
 }
 
 .glass-card-hover {
-  @apply glass-card transition-all duration-300 hover:bg-surface hover:border-border hover:shadow-lg hover:-translate-y-1;
+  transition: all 0.3s ease;
+}
+
+.glass-card-hover:hover {
+  background-color: rgb(var(--bg-surface) / 0.8);
+  border-color: rgb(var(--border-subtle));
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
 }
 
 /* 🚀 Custom Scrollbar */
