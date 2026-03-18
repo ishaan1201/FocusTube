@@ -72,6 +72,9 @@ export const AuthProvider = ({ children }) => {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password });
 
+  const signInAnonymously = () =>
+    supabase.auth.signInAnonymously();
+
   const signOut = () => {
     setUser(null);
     setProfile(null);
@@ -84,7 +87,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signUp, signIn, signOut, fetchProfile, refreshProfile }}
+      value={{ user, profile, loading, signUp, signIn, signInAnonymously, signOut, fetchProfile, refreshProfile }}
     >
       {!loading && children}
     </AuthContext.Provider>

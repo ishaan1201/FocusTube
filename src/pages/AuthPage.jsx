@@ -7,7 +7,7 @@ import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Spa
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, signUp, signIn } = useAuth();
+  const { user, signUp, signIn, signInAnonymously } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -181,9 +181,17 @@ export default function AuthPage() {
               <span className="text-xs font-bold text-white">Google</span>
             </button>
             <button 
-              onClick={() => {
-                localStorage.setItem("guest_mode", "true");
-                navigate("/");
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const { error } = await signInAnonymously();
+                  if (error) throw error;
+                  navigate("/");
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setLoading(false);
+                }
               }}
               className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-purple-400 border-purple-500/20"
             >
