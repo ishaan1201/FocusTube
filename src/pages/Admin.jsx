@@ -1,19 +1,22 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, Pie, PieChart } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import GlassCard from "../components/ui/GlassCard";
 import { summarizeFeedback } from "../services/aiSummary";
 import { analyzeSentiment } from "../services/sentiment";
 import { getAIResponse } from "../services/gemini";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Sparkles, Send, LogOut, MessageSquare, CheckCircle, Zap, ShieldAlert, AlertCircle, Info } from "lucide-react";
+import { Search, Sparkles, Send, LogOut, CheckCircle, Zap, ShieldAlert, AlertCircle, Info } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Admin() {
   const navigate = useNavigate();
+  const { profile, loading: authLoading } = useAuth();
+  
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("feedback"); // Default to feedback for command center
+  const [activeTab, setActiveTab] = useState("feedback");
   const [selected, setSelected] = useState(null);
   const [replyText, setReplyText] = useState({});
   const [search, setSearch] = useState("");
@@ -24,10 +27,21 @@ export default function Admin() {
   const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
   const [commandFocusMode, setCommandFocusMode] = useState(true);
 
+  // ROLE-BASED PROTECTION
+  useEffect(() => {
+    if (!authLoading) {
+      if (!profile || profile.role !== "admin") {
+        navigate("/");
+      } else {
+        fetchFeedback();
+      }
+    }
+  }, [profile, authLoading, navigate]);
+
   const fetchFeedback = async () => {
     const { data, error } = await supabase
       .from("feedback")
-      .select("*")
+      .select("*, profiles(email, full_name, avatar_url)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -37,15 +51,6 @@ export default function Admin() {
     }
     setLoading(false);
   };
-
-  useEffect(() => {
-    const isAuth = localStorage.getItem("admin_auth");
-    if (!isAuth) {
-      navigate("/admin-login");
-    } else {
-      fetchFeedback();
-    }
-  }, [navigate]);
 
   // AUTO-OPEN HIGH PRIORITY
   useEffect(() => {
@@ -68,7 +73,7 @@ export default function Admin() {
       .update({
         reply: text,
         replied: true,
-        status: "resolved" // Auto-resolve on reply in command center
+        status: "resolved"
       })
       .eq("id", id);
 
@@ -105,21 +110,20 @@ export default function Admin() {
   useEffect(() => {
     const handleKey = (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-      
       if (selected) {
         if (e.key === "r") markResolved(selected.id);
         if (e.key === "a") autoReply(selected);
       }
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [selected, markResolved, autoReply]);
 
   const visibleFeedback = feedback.filter((f) => {
+    const email = f.profiles?.email || f.email || "Anonymous";
     const matchSearch =
       (f.pain_point?.toLowerCase() || "").includes(search.toLowerCase()) ||
-      (f.email?.toLowerCase() || "").includes(search.toLowerCase());
+      (email.toLowerCase()).includes(search.toLowerCase());
 
     if (commandFocusMode) {
       return matchSearch && (f.priority === "high" || f.rating <= 4 || f.status === "new");
@@ -136,15 +140,21 @@ export default function Admin() {
     return <Info className="text-blue-500" size={16} />;
   };
 
+  if (authLoading || loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+        <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative text-white bg-black min-h-screen font-sans flex flex-col">
-      {/* Background Glow */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute w-[600px] h-[600px] bg-purple-600/5 blur-[120px] -top-20 -left-20" />
         <div className="absolute w-[600px] h-[600px] bg-blue-600/5 blur-[120px] -bottom-20 -right-20" />
       </div>
 
-      {/* Mini Header */}
       <header className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent">
@@ -173,7 +183,7 @@ export default function Admin() {
             </button>
           </div>
           <button 
-            onClick={() => { localStorage.removeItem("admin_auth"); navigate("/admin-login"); }}
+            onClick={() => { supabase.auth.signOut(); navigate("/"); }}
             className="text-zinc-500 hover:text-white transition-colors"
           >
             <LogOut size={18} />
@@ -184,7 +194,6 @@ export default function Admin() {
       <main className="flex-1 flex overflow-hidden">
         {activeTab === "feedback" ? (
           <div className="flex-1 grid grid-cols-12 overflow-hidden">
-            {/* LEFT: Feedback List */}
             <div className="col-span-4 border-r border-white/5 flex flex-col bg-zinc-950/20">
               <div className="p-4 border-b border-white/5">
                 <div className="relative">
@@ -209,7 +218,7 @@ export default function Admin() {
                   >
                     <div className="flex justify-between items-start mb-1">
                       <span className="text-[10px] font-black text-zinc-500 uppercase tracking-tighter truncate max-w-[150px]">
-                        {item.email || "Anonymous"}
+                        {item.profiles?.email || item.email || "Anonymous"}
                       </span>
                       {getPriorityIcon(item)}
                     </div>
@@ -231,7 +240,6 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* RIGHT: Detail Panel */}
             <div className="col-span-8 flex flex-col bg-black">
               <AnimatePresence mode="wait">
                 {selected ? (
@@ -245,14 +253,17 @@ export default function Admin() {
                     <div className="flex justify-between items-start mb-8">
                       <div>
                         <div className="flex items-center gap-3 mb-2">
-                          <h2 className="text-2xl font-black text-white">{selected.email || "Anonymous User"}</h2>
+                          <h2 className="text-2xl font-black text-white">{selected.profiles?.email || selected.email || "Anonymous User"}</h2>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${
                             selected.priority === 'high' || selected.rating <= 4 ? 'bg-red-500/20 text-red-500' : 'bg-zinc-800 text-zinc-400'
                           }`}>
                             {selected.priority?.toUpperCase() || (selected.rating <= 4 ? "HIGH" : "NORMAL")} PRIORITY
                           </span>
                         </div>
-                        <p className="text-zinc-500 text-sm">Submitted on {new Date(selected.created_at).toLocaleString()}</p>
+                        <p className="text-zinc-500 text-sm">
+                          {selected.profiles?.full_name ? `Name: ${selected.profiles.full_name} • ` : ''}
+                          Submitted on {new Date(selected.created_at).toLocaleString()}
+                        </p>
                       </div>
                       <div className="text-4xl font-black bg-zinc-900 w-16 h-16 rounded-2xl flex items-center justify-center border border-white/5">
                         {selected.rating}
@@ -333,7 +344,7 @@ export default function Admin() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <GlassCard>
                 <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-4">Avg Rating</p>
-                <h2 className="text-4xl font-black">{(feedback.reduce((a, b) => a + b.rating, 0) / (feedback.length || 1)).toFixed(1)}</h2>
+                <h2 className="text-4xl font-black">{(feedback.reduce((a, b) => a + (b.rating || 0), 0) / (feedback.length || 1)).toFixed(1)}</h2>
               </GlassCard>
               <GlassCard>
                 <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-4">Total Items</p>

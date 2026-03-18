@@ -2,8 +2,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../services/supabase";
 import { sendDiscordNotification } from "../services/notifications";
+import { useAuth } from "../context/AuthContext";
 
 export default function FeedbackForm({ onClose }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +24,11 @@ export default function FeedbackForm({ onClose }) {
     setLoading(true);
 
     const priority = form.rating <= 4 ? "high" : form.rating <= 7 ? "medium" : "low";
-    const feedbackData = { ...form, priority };
+    const feedbackData = { 
+      ...form, 
+      priority,
+      user_id: user?.id || null 
+    };
 
     const { error } = await supabase.from("feedback").insert([feedbackData]);
 
