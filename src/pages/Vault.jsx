@@ -1,9 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Flame, Clock, Calendar, StickyNote, MessageSquare, History, Heart, Bookmark, Brain, Zap, TrendingUp, Loader2 } from "lucide-react";
+import { 
+  Flame, Clock, Calendar, StickyNote, MessageSquare, 
+  History, Heart, Bookmark, Brain, Zap, TrendingUp, 
+  Loader2, Archive, FileText, ChevronRight
+} from "lucide-react";
 import { getFocusStats } from "../utils/storage";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
+import { fetchDocuments } from "../services/userData";
 import { motion } from "framer-motion";
 
 function Vault() {
@@ -15,15 +20,17 @@ function Vault() {
   });
   const [isSyncing, setIsSyncing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  
+  const [notes, setNotes] = useState([]);
+  const [insights, setInsights] = useState([]);
 
-  // FETCH FROM CLOUD ON MOUNT
+  // 1. FETCH PRODUCTIVITY STATS
   useEffect(() => {
     const fetchCloudStats = async () => {
       if (!user) {
         setInitialLoading(false);
         return;
       }
-      
       try {
         const { data, error } = await supabase
           .from("analytics")
@@ -32,11 +39,10 @@ function Vault() {
           .single();
 
         if (data && !error) {
-          // Merge logic: Take the max of local and cloud to ensure no progress is lost
           const local = getFocusStats();
           const merged = {
             totalMins: Math.max(local.totalMins, data.total_mins),
-            todayMins: local.todayMins, // Today's minutes are usually more accurate locally
+            todayMins: local.todayMins,
             weeklyData: local.weeklyData.map((mins, i) => Math.max(mins, data.weekly_data[i] || 0))
           };
           setStats(merged);
@@ -49,9 +55,21 @@ function Vault() {
         setInitialLoading(false);
       }
     };
-
     fetchCloudStats();
   }, [user]);
+
+  // 2. FETCH DOCUMENTS (NOTES & INSIGHTS)
+  useEffect(() => {
+    const loadDocs = async () => {
+      const [fetchedNotes, fetchedInsights] = await Promise.all([
+        fetchDocuments(user, 'note'),
+        fetchDocuments(user, 'ai_insight')
+      ]);
+      setNotes(fetchedNotes);
+      setInsights(fetchedInsights);
+    };
+    if (!initialLoading) loadDocs();
+  }, [user, initialLoading]);
 
   const syncToSupabase = useCallback(async (currentStats) => {
     if (!user || isSyncing) return;
@@ -73,18 +91,15 @@ function Vault() {
   // LIVE TRACKING
   useEffect(() => {
     if (initialLoading) return;
-
     const refreshStats = () => {
       const newStats = getFocusStats();
       setStats(newStats);
       return newStats;
     };
-
     const interval = setInterval(() => {
       const updated = refreshStats();
       if (user) syncToSupabase(updated);
-    }, 15000); // Sync every 15s to be efficient
-
+    }, 15000);
     return () => clearInterval(interval);
   }, [user, initialLoading, syncToSupabase]);
 
@@ -131,129 +146,116 @@ function Vault() {
   }
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>Digital Wellbeing</h1>
-        {isSyncing && <span style={styles.syncTag}><Zap size={10} fill="currentColor" /> Syncing</span>}
+    <div className="p-10 max-w-6xl mx-auto text-white">
+      <header className="flex justify-between items-center mb-10">
+        <div className="flex items-center gap-4">
+          <Archive size={32} className="text-purple-500" />
+          <h1 className="text-4xl font-black tracking-tighter">THE VAULT</h1>
+        </div>
+        {isSyncing && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
+            <Zap size={10} fill="currentColor" /> Cloud Sync Active
+          </div>
+        )}
       </header>
 
-      {/* 🏆 STATS ROW */}
-      <div style={styles.statsRow}>
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, background: "rgba(33, 150, 243, 0.1)" }}><Clock size={20} color="#2196f3" /></div>
-          <div>
-            <p style={styles.statLabel}>Today's Focus</p>
-            <h2 style={styles.statValue}>{formatHrsMins(stats.todayMins)}</h2>
-          </div>
-        </div>
-
-        <div style={styles.statCard}>
-          <div style={{ ...styles.statIcon, background: "rgba(156, 39, 176, 0.1)" }}><Brain size={20} color="#9c27b0" /></div>
-          <div>
-            <p style={styles.statLabel}>Productivity</p>
-            <h2 style={styles.statValue}>{getProductivityScore()}%</h2>
-          </div>
-        </div>
+      {/* 📊 CORE STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <StatCard icon={<Clock className="text-blue-400" />} label="Today's Focus" value={formatHrsMins(stats.todayMins)} />
+        <StatCard icon={<Brain className="text-purple-400" />} label="Productivity" value={`${getProductivityScore()}%`} />
+        <StatCard icon={<Flame className="text-orange-400" />} label="Current Streak" value={`${getStreak()} Days`} />
       </div>
 
-      {/* 📊 7-DAY ACTIVITY CHART */}
-      <div style={styles.chartCard}>
-        <div style={styles.chartHeader}>
-          <h3 style={styles.chartTitle}><Calendar size={18} /> Last 7 Days</h3>
-          <p style={styles.streakLabel}>🔥 {getStreak()} day streak</p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        {/* LEFT: CHART & INSIGHTS */}
+        <div className="lg:col-span-8 space-y-10">
+          <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-8 rounded-[2rem]">
+            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-8 flex items-center gap-2">
+              <Calendar size={16} /> Weekly Activity
+            </h3>
+            <div className="flex justify-between items-end h-40 gap-2">
+              {stats.weeklyData.map((mins, idx) => {
+                const isToday = new Date().getDay() === idx;
+                const height = mins > 0 ? Math.max(8, (mins / maxWeeklyMins) * 100) : 0;
+                return (
+                  <div key={idx} className="flex-1 flex flex-col items-center gap-3">
+                    <div className="w-full bg-white/5 rounded-t-xl flex items-end h-full overflow-hidden">
+                      <motion.div 
+                        initial={{ height: 0 }}
+                        animate={{ height: `${height}%` }}
+                        className={`w-full rounded-t-lg ${isToday ? 'bg-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.4)]' : 'bg-zinc-700'}`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-black ${isToday ? 'text-purple-400' : 'text-zinc-600'}`}>{daysOfWeek[idx]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 border border-purple-500/20 p-8 rounded-[2rem]">
+            <div className="flex items-center gap-3 mb-4">
+              <Zap size={20} className="text-yellow-400" fill="currentColor" />
+              <h3 className="text-lg font-black tracking-tight">FocusAI Intelligence</h3>
+            </div>
+            <p className="text-zinc-300 leading-relaxed italic">"{generateInsight()}"</p>
+          </div>
         </div>
-        
-        <div style={styles.chartArea}>
-          {stats.weeklyData.map((mins, idx) => {
-            const isToday = new Date().getDay() === idx;
-            const safeMins = Math.max(0, mins);
-            const calculatedHeight = safeMins > 0 ? Math.max(4, (safeMins / maxWeeklyMins) * 100) : 0;
-            const heightPercent = `${Math.min(100, calculatedHeight)}%`;
-            
-            return (
-              <div key={idx} style={styles.barCol}>
-                <div style={styles.barTrack}>
-                  <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: heightPercent }}
-                    style={{ 
-                      ...styles.barFill, 
-                      background: isToday ? "#4caf50" : "linear-gradient(to top, #6366f1, #a855f7)"
-                    }} 
-                    title={`${Math.round(safeMins)} mins`}
-                  />
+
+        {/* RIGHT: DOCUMENTS PREVIEW */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-zinc-900/40 border border-white/5 p-6 rounded-[2rem]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Latest Notes</h3>
+              <Link to="/notes" className="text-[10px] font-bold text-purple-400 hover:underline flex items-center">
+                All <ChevronRight size={10} />
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {notes.slice(0, 3).map((note, i) => (
+                <div key={i} className="p-4 bg-black/40 border border-white/5 rounded-2xl hover:border-purple-500/30 transition-all cursor-pointer group">
+                  <p className="text-[10px] font-black text-zinc-500 mb-1">ID: {note.videoId}</p>
+                  <p className="text-xs text-zinc-300 line-clamp-1 group-hover:text-white transition-colors">
+                    {note.content.replace(/<[^>]*>/g, '').substring(0, 40)}...
+                  </p>
                 </div>
-                <span style={{ ...styles.dayLabel, color: isToday ? "#4caf50" : "#888", fontWeight: isToday ? "bold" : "normal" }}>
-                  {daysOfWeek[idx]}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+              ))}
+              {notes.length === 0 && <p className="text-xs text-zinc-600 italic">No notes captured yet.</p>}
+            </div>
+          </div>
 
-      {/* 🧠 AI INSIGHT CARD */}
-      <div style={styles.insightCard}>
-        <div style={styles.insightHeader}>
-          <Zap size={16} className="text-yellow-500" fill="currentColor" />
-          <h3 style={styles.insightTitle}>FocusAI Insight</h3>
+          {/* Quick Nav Grid */}
+          <div className="grid grid-cols-2 gap-4">
+             <NavIcon to="/history" icon={<History />} label="History" />
+             <NavIcon to="/liked" icon={<Heart />} label="Liked" />
+             <NavIcon to="/saved" icon={<Bookmark />} label="Saved" />
+             <NavIcon to="/insights" icon={<TrendingUp />} label="Stats" />
+          </div>
         </div>
-        <p style={styles.insightText}>{generateInsight()}</p>
-      </div>
-
-      {/* 🎛️ RECTANGULAR NAVIGATION GRID */}
-      <div style={styles.btnGrid}>
-        <NavBox to="/history" icon={<History color="#ff4444" size={26} />} label="History" bg="rgba(255, 68, 68, 0.1)" />
-        <NavBox to="/liked" icon={<Heart color="#e91e63" size={26} />} label="Liked" bg="rgba(233, 30, 99, 0.1)" />
-        <NavBox to="/saved" icon={<Bookmark color="#4caf50" size={26} />} label="Saved" bg="rgba(76, 175, 80, 0.1)" />
-        <NavBox to="/notes" icon={<StickyNote color="#ff9800" size={26} />} label="Notes" bg="rgba(255, 152, 0, 0.1)" />
-        <NavBox to="/insights" icon={<TrendingUp color="#2196f3" size={26} />} label="Insights" bg="rgba(33, 150, 243, 0.1)" />
       </div>
     </div>
   );
 }
 
-const NavBox = ({ to, icon, label, bg }) => (
-  <motion.div whileHover={{ scale: 1.05, y: -5 }} whileTap={{ scale: 0.95 }}>
-    <Link to={to} style={styles.boxBtn}>
-      <div style={{ ...styles.boxIcon, background: bg }}>{icon}</div>
-      <span style={styles.boxText}>{label}</span>
-    </Link>
-  </motion.div>
+const StatCard = ({ icon, label, value }) => (
+  <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-6 rounded-[2rem] flex items-center gap-5">
+    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center">
+      {icon}
+    </div>
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">{label}</p>
+      <h2 className="text-2xl font-black tracking-tight">{value}</h2>
+    </div>
+  </div>
 );
 
-const styles = {
-  container: { padding: "40px", maxWidth: "800px", margin: "0 auto", color: "white" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" },
-  title: { fontSize: "32px", fontWeight: "900", margin: 0, letterSpacing: "-1px" },
-  syncTag: { fontSize: "10px", fontWeight: "bold", textTransform: "uppercase", background: "rgba(34, 197, 94, 0.1)", color: "#22c55e", padding: "4px 8px", borderRadius: "6px", display: "flex", alignItems: "center", gap: "4px" },
-
-  statsRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" },
-  statCard: { background: "#111", padding: "24px", borderRadius: "20px", border: "1px solid #222", display: "flex", alignItems: "center", gap: "20px" },
-  statIcon: { width: "48px", height: "48px", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" },
-  statLabel: { color: "#888", fontSize: "13px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px", margin: "0 0 4px 0" },
-  statValue: { fontSize: "28px", fontWeight: "900", margin: 0 },
-
-  chartCard: { background: "#111", padding: "30px", borderRadius: "24px", border: "1px solid #222", marginBottom: "20px" },
-  chartHeader: { marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
-  chartTitle: { fontSize: "16px", fontWeight: "bold", margin: 0, display: "flex", alignItems: "center", gap: "8px" },
-  streakLabel: { fontSize: "12px", fontWeight: "800", color: "#ff9800", textTransform: "uppercase" },
-  
-  chartArea: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", height: "150px", padding: "10px 0" },
-  barCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", flex: 1 },
-  barTrack: { width: "16px", height: "120px", background: "#222", borderRadius: "8px", display: "flex", alignItems: "flex-end", overflow: "hidden" },
-  barFill: { width: "100%", borderRadius: "8px" },
-  dayLabel: { fontSize: "12px" },
-
-  insightCard: { background: "linear-gradient(135deg, #1a1a1a, #0a0a0a)", padding: "24px", borderRadius: "20px", border: "1px solid #333", borderLeft: "4px solid #8b5cf6", marginBottom: "30px" },
-  insightHeader: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" },
-  insightTitle: { fontSize: "14px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "1px", color: "#8b5cf6", margin: 0 },
-  insightText: { fontSize: "15px", color: "#ccc", margin: 0, lineHeight: "1.6" },
-
-  btnGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "16px" },
-  boxBtn: { background: "#111", border: "1px solid #222", padding: "24px 10px", borderRadius: "20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px", cursor: "pointer", textDecoration: "none" },
-  boxIcon: { width: "54px", height: "54px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "4px" },
-  boxText: { color: "white", fontSize: "14px", fontWeight: "bold" }
-};
+const NavIcon = ({ to, icon, label }) => (
+  <Link to={to} className="flex flex-col items-center justify-center p-6 bg-zinc-900/40 border border-white/5 rounded-[2rem] hover:bg-white/5 transition-all active:scale-95 group">
+    <div className="text-zinc-500 group-hover:text-white transition-colors mb-2">
+      {icon}
+    </div>
+    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 group-hover:text-white">{label}</span>
+  </Link>
+);
 
 export default Vault;

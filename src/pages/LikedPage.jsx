@@ -1,44 +1,69 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { fetchVideoList } from "../services/userData";
+import VideoCard from "../components/VideoCard";
+import { Heart, Loader } from "lucide-react";
 
 function LikedPage() {
   const { user } = useAuth();
-  const [liked, setLiked] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
-      const data = await fetchVideoList(user, 'liked');
-      setLiked(data);
+    const loadLikedVideos = async () => {
+      setLoading(true);
+      // Fetch from our hybrid service
+      const rawData = await fetchVideoList(user, 'liked');
+      
+      // Transform the flat database row back into the YouTube API format 
+      // so your <VideoCard /> component can read it without crashing
+      const formattedVideos = rawData.map(v => ({
+        id: { videoId: v.video_id || v.id }, 
+        snippet: {
+          title: v.title,
+          thumbnails: { high: { url: v.thumbnail_url || v.thumbnail } },
+          channelTitle: v.channel || "Liked Content",
+          publishedAt: v.saved_at || new Date().toISOString()
+        },
+        duration: v.duration || "0:00"
+      }));
+      
+      setVideos(formattedVideos);
+      setLoading(false);
     };
-    loadData();
+
+    loadLikedVideos();
   }, [user]);
 
   return (
-    <div style={{ padding: '40px' }}>
-      <h1 style={{ fontWeight: '900', marginBottom: '30px' }}>Liked Videos</h1>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        {liked.map(v => (
-          <Link to={`/video/${v.video_id || v.id}`} key={v.video_id || v.id} style={styles.row}>
-            <img src={v.thumbnail_url || v.thumbnail} style={styles.miniThumb} alt="t" />
-            <div>
-              <h4 style={{ margin: 0, color: 'white' }}>{v.title}</h4>
-              <p style={{ margin: '5px 0 0 0', color: '#aaa', fontSize: '12px' }}>{v.channel}</p>
-            </div>
-            <Heart size={18} color="red" fill="red" style={{ marginLeft: 'auto' }} />
-          </Link>
-        ))}
-        {liked.length === 0 && <p style={{ color: '#666' }}>No liked videos yet.</p>}
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <Heart size={28} color="#ff4444" fill="#ff4444" />
+        <h1 style={styles.title}>Liked Videos</h1>
       </div>
+
+      {loading ? (
+        <div style={styles.center}><Loader className="animate-spin" /> Fetching your favorites...</div>
+      ) : videos.length > 0 ? (
+        <div style={styles.grid}>
+          {videos.map((video, idx) => (
+            <VideoCard key={idx} video={video} />
+          ))}
+        </div>
+      ) : (
+        <p style={styles.emptyText}>You haven't liked any videos yet.</p>
+      )}
     </div>
   );
 }
 
 const styles = {
-  row: { display: "flex", gap: "15px", alignItems: "center", background: "#111", padding: "12px", borderRadius: "12px", textDecoration: "none" },
-  miniThumb: { width: "120px", borderRadius: "8px" }
+  container: { padding: "40px", color: "white" },
+  header: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "30px" },
+  title: { fontSize: "32px", fontWeight: "900", margin: 0 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" },
+  center: { display: "flex", justifyContent: "center", padding: "40px", color: "#888", gap: "10px" },
+  emptyText: { color: "#888", fontSize: "16px" }
 };
 
 export default LikedPage;
