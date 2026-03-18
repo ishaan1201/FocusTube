@@ -149,23 +149,9 @@ export default function AuthPage() {
       </div>
 
       {/* ========================================== */}
-      {/* 👉 RIGHT PANEL: MINIMAL TEXT (NO BOUNDARIES) */}
+      {/* 👉 RIGHT PANEL: PURE NEGATIVE SPACE */}
       {/* ========================================== */}
-      <div className="hidden lg:flex w-[50%] flex-col items-center justify-center relative z-20 pr-12">
-         <motion.div 
-          initial={{ opacity: 0, filter: "blur(10px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          transition={{ duration: 1.2, delay: 0.3 }}
-          className="text-center"
-         >
-           <h2 className="text-5xl font-black text-slate-800 tracking-tight mb-6 leading-tight">
-             Find your <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-rose-400">flow state.</span>
-           </h2>
-           <p className="text-slate-600 font-medium text-lg max-w-sm mx-auto leading-relaxed">
-             A quiet, minimalist space designed for deep work and focused learning.
-           </p>
-         </motion.div>
-      </div>
+      <div className="hidden lg:block w-[50%] relative z-20 pointer-events-none" />
 
     </div>
   );
