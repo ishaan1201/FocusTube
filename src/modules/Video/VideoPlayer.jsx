@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import YouTube from "react-youtube";
 import { RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -8,6 +8,18 @@ import { syncWatchHistory } from "../../services/userData";
 export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const playerRef = useRef(null);
+
+  // 🚀 Cache the YouTube options so they don't trigger iframe reloads
+  const playerOpts = useMemo(() => ({
+    height: '100%',
+    width: '100%',
+    playerVars: { 
+      autoplay: 1, 
+      start: parseInt(startTime) || 0, 
+      modestbranding: 1, 
+      rel: 0 
+    }
+  }), [startTime]);
 
   // Automatically track watch time and save to history
   useEffect(() => {
@@ -37,7 +49,7 @@ export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
     <div style={focusMode ? styles.playerWrapperFocus : styles.playerWrapper}>
       <YouTube
         videoId={id}
-        opts={{ height: '100%', width: '100%', playerVars: { autoplay: 1, start: parseInt(startTime) || 0, modestbranding: 1, rel: 0 } }}
+        opts={playerOpts}
         onReady={(e) => { 
           playerRef.current = e.target; 
           const startSecs = parseInt(startTime, 10);

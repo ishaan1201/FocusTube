@@ -57,12 +57,12 @@ export default function VideoPage() {
       }
     };
     init();
-  }, [id]);
+  }, [id, user?.id]);
 
   // 🚀 MEMOIZE THE PLAYER: Prevents iframe flickering during rapid panel resizing
   const memoizedPlayer = useMemo(() => {
     return <VideoPlayer id={id} video={video} startTime={startTime} focusMode={focusMode} user={user} />;
-  }, [id, video, startTime, focusMode, user]);
+  }, [id, video?.id, startTime, focusMode, user?.id]);
 
   // 🚀 BUTTER-SMOOTH MOUSE DRAG LOGIC
   useEffect(() => {
