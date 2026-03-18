@@ -4,7 +4,8 @@ import { supabase } from "../services/supabase";
 import { motion } from "framer-motion";
 import { 
   User, Camera, Mail, Save, Loader2, ArrowLeft, 
-  Shield, Twitter, Github, Globe, Image as ImageIcon 
+  Shield, Twitter, Github, Globe, Image as ImageIcon,
+  LogOut
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
