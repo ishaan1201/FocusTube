@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff, UserCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff, UserCircle, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import GoogleTranslate from "./GoogleTranslate";
 import GlobalAIChat from "./GlobalAIChat";
 import ThemeToggle from "./ThemeToggle";
 
-function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
+export default function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   const [input, setInput] = useState("");
   const [showAIChat, setShowAIChat] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -52,116 +52,84 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   };
 
   return (
-    <header style={styles.header}>
-      <div style={styles.leftSection}>
-        <button onClick={toggleSidebar} style={styles.menuBtn}>
-          <Menu size={24} />
+    <header className="h-16 border-b border-border bg-surface text-primary flex items-center justify-between px-4 sticky top-0 z-40 transition-colors duration-300">
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={toggleSidebar}
+          className="p-2 hover:bg-base rounded-xl transition-colors"
+        >
+          <Menu size={20} className="text-primary" />
         </button>
 
         {timer && timer.sessionStarted ? (
           <button
             onClick={() => timer.setIsActive(!timer.isActive)}
-            style={{ ...styles.timerBtn, background: timer.isActive ? "rgba(255, 68, 68, 0.1)" : "#222" }}
-            title={timer.isActive ? "Tap to Pause" : "Tap to Resume"}
+            className={`flex items-center gap-3 px-4 py-2 border border-border rounded-full transition-all ${timer.isActive ? "bg-accent/10" : "bg-base"}`}
           >
-            {timer.isActive ? <Pause size={18} color="#ff4444" /> : <Play size={18} color="#4caf50" />}
-            <span style={styles.timerText}>{formatTime(timer.timeLeft)}</span>
+            {timer.isActive ? <Pause size={18} className="text-accent" /> : <Play size={18} className="text-green-500" />}
+            <span className="font-mono font-bold text-sm tracking-tighter">{formatTime(timer.timeLeft)}</span>
           </button>
         ) : (
-          <div style={styles.logoContainer} onClick={() => { onSearch(""); navigate("/"); }}>
-            <h2 style={styles.logo}>Curio</h2>
-            <span style={styles.poweredBy}>Powered by YouTube</span>
+          <div className="hidden sm:flex flex-col cursor-pointer" onClick={() => { onSearch(""); navigate("/"); }}>
+            <h2 className="text-accent font-black text-xl tracking-tighter leading-none">Curio</h2>
+            <span className="text-[8px] font-bold uppercase tracking-widest text-muted mt-1">Focus System</span>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSearchSubmit} style={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search videos..."
-          style={styles.searchInput}
+      <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center bg-base border border-border px-4 py-2 rounded-full w-96 focus-within:border-accent/50 focus-within:ring-1 focus-within:ring-accent/20 transition-all">
+        <Search size={16} className="text-muted mr-2" />
+        <input 
+          type="text" 
+          placeholder="Search FocusTube..." 
+          className="bg-transparent border-none outline-none w-full text-sm text-primary placeholder:text-muted"
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
-        <button type="button" onClick={startVoiceSearch} style={{ ...styles.iconBtnBase, color: isListening ? "#ff4444" : "#888", marginRight: "10px" }}>
-          {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-        </button>
-        <button type="submit" style={styles.searchBtn}>
-          <Search size={18} />
+        <button type="button" onClick={startVoiceSearch} className={`ml-2 transition-colors ${isListening ? "text-accent" : "text-muted hover:text-primary"}`}>
+           {isListening ? <MicOff size={16} /> : <Mic size={16} />}
         </button>
       </form>
 
-      <div style={styles.actions}>
+      <div className="flex items-center gap-2 sm:gap-4">
         {bgVideoId && (
-          <button 
-            onClick={() => setBgVideoId(null)} 
-            style={styles.musicBtn} 
-            title="Stop Ambient Music"
-          >
-            <VolumeX size={18} color="#ff4444" />
+          <button onClick={() => setBgVideoId(null)} className="p-2 bg-accent/10 rounded-full text-accent hover:bg-accent/20 transition-all">
+            <VolumeX size={18} />
           </button>
         )}
 
         <button 
           onClick={() => setShowAIChat(!showAIChat)} 
-          style={{ ...styles.aiToggle, background: showAIChat ? "linear-gradient(135deg, #4285f4, #9b72cb)" : "rgba(255,255,255,0.05)" }}
-          title="Ask FocusAI"
+          className={`p-2 rounded-xl transition-all ${showAIChat ? "bg-accent text-white shadow-lg shadow-accent/20" : "hover:bg-base text-primary"}`}
         >
-          <Sparkles size={20} color={showAIChat ? "#fff" : "#aaa"} />
+          <Sparkles size={20} />
         </button>
 
         {showAIChat && <GlobalAIChat onClose={() => setShowAIChat(false)} />}
 
-        <GoogleTranslate />
+        <div className="hidden sm:block">
+          <GoogleTranslate />
+        </div>
 
         <ThemeToggle />
 
-        <Settings
-          size={22}
-          style={styles.icon}
-          onClick={() => navigate("/settings")}
-          title="App Settings"
-        />
+        <button className="p-2 hover:bg-base rounded-xl transition-colors relative text-primary">
+          <Bell size={20} />
+          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-accent rounded-full border-2 border-surface"></span>
+        </button>
 
-        <div onClick={handleProfileClick} style={{ cursor: "pointer" }}>
-          {user && !user.is_anonymous ? (
-            <img
-              src={profile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || user.email}`}
-              alt="Profile"
-              style={styles.avatar}
-              title={`Settings: ${profile?.full_name || user.email}`}
-            />
-          ) : (
-            <button style={styles.loginBtn}>
-              <User size={18} />
-              <span>Sign In</span>
-            </button>
-          )}
+        <div onClick={handleProfileClick} className="w-9 h-9 rounded-full bg-gradient-to-tr from-accent to-indigo-500 p-[2px] cursor-pointer hover:scale-105 transition-transform active:scale-95">
+          <div className="w-full h-full rounded-full border-2 border-surface overflow-hidden bg-base flex items-center justify-center">
+             {user && (profile?.avatar_url || user.user_metadata?.avatar_url) ? (
+               <img src={profile?.avatar_url || user.user_metadata?.avatar_url} className="w-full h-full object-cover" alt="pfp" />
+             ) : (
+               <span className="text-xs font-black text-primary">
+                 {profile?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
+               </span>
+             )}
+          </div>
         </div>
       </div>
     </header>
   );
 }
-
-const styles = {
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 24px", background: "var(--bg-primary)", borderBottom: "1px solid var(--border-color)", position: "sticky", top: 0, zIndex: 100, height: "64px" },
-  leftSection: { display: "flex", alignItems: "center", gap: "15px" },
-  menuBtn: { background: "none", color: "white", border: "none", cursor: "pointer" },
-  timerBtn: { display: "flex", alignItems: "center", gap: "10px", padding: "8px 16px", border: "1px solid #333", borderRadius: "20px", cursor: "pointer", minWidth: "120px" },
-  timerText: { fontSize: "16px", fontWeight: "bold", fontFamily: "monospace", color: "white" },
-  logoContainer: { cursor: "pointer", minWidth: "150px", display: "flex", flexDirection: "column", justifyContent: "center" },
-  logo: { color: "#4F46E5", margin: 0, fontWeight: "800", letterSpacing: "-0.5px", fontSize: "22px", lineHeight: "1", fontFamily: "'Syne', 'Inter', sans-serif" },
-  poweredBy: { fontSize: "9px", color: "#888", letterSpacing: "0.5px", marginTop: "2px", textTransform: "uppercase", fontWeight: "600" },
-  searchContainer: { flex: 0.5, display: "flex", background: "#121212", borderRadius: "24px", border: "1px solid #333", overflow: "hidden", height: "40px", alignItems: "center" },
-  searchInput: { flex: 1, background: "transparent", border: "none", padding: "0 20px", color: "var(--text-primary)", outline: "none", fontSize: "14px" },
-  searchBtn: { background: "#222", border: "none", color: "#aaa", padding: "0 20px", height: "100%", cursor: "pointer", transition: "color 0.2s" },
-  iconBtnBase: { background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 },
-  actions: { display: "flex", alignItems: "center", gap: "22px" },
-  icon: { cursor: "pointer", color: "#aaa", transition: "color 0.2s" },
-  musicBtn: { background: "rgba(255, 68, 68, 0.1)", border: "1px solid rgba(255, 68, 68, 0.3)", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "0.2s" },
-  aiToggle: { width: "40px", height: "40px", borderRadius: "50%", border: "1px solid #333", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "0.3s all ease", padding: 0 },
-  avatar: { width: "34px", height: "34px", borderRadius: "50%", border: "2px solid #333", objectFit: "cover", transition: "border-color 0.2s" },
-  loginBtn: { display: "flex", alignItems: "center", gap: "8px", background: "transparent", color: "#3ea6ff", border: "1px solid #333", padding: "6px 14px", borderRadius: "20px", cursor: "pointer", fontWeight: "600", fontSize: "14px" }
-};
-
-export default Header;

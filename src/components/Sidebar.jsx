@@ -8,7 +8,6 @@ import {
 function Sidebar({ open, onClose, focusMode, activeCategory }) {
   if (!open) return null;
 
-  // 📂 Categories Data
   const CATEGORIES = [
     { to: "/category/coding", icon: <Code size={18} />, label: "Coding" },
     { to: "/category/science", icon: <Atom size={18} />, label: "Science" },
@@ -19,130 +18,82 @@ function Sidebar({ open, onClose, focusMode, activeCategory }) {
     { to: "/category/trading", icon: <TrendingUp size={18} />, label: "Trading & Finance" },
   ];
 
-  // 🛡️ FILTER LOGIC: If Focus Mode is ON, only show the locked category
   const visibleCategories = focusMode
     ? CATEGORIES.filter(c => c.to.includes(activeCategory?.toLowerCase().replace(/\s+/g, '-')))
     : CATEGORIES;
 
   return (
     <>
-      <div onClick={onClose} style={styles.overlay} />
-      <aside style={styles.sidebar}>
+      <div onClick={onClose} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[998] md:hidden" />
+      <aside className={`fixed top-16 left-0 h-[calc(100vh-64px)] bg-surface border-r border-border transition-all duration-300 z-[999] overflow-y-auto scrollbar-hide ${open ? 'w-64' : 'w-0 md:w-20'}`}>
+        
+        <div className="py-6 flex flex-col gap-2">
+          {focusMode && (
+            <div className="mx-4 mb-6 p-3 bg-accent/10 border border-accent/20 rounded-2xl flex items-center gap-3">
+              <Shield size={16} className="text-accent" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent">Locked Mode</span>
+            </div>
+          )}
 
-        {/* 🛡️ LOCKED BADGE (Only shows in Focus Mode) */}
-        {focusMode && (
-          <div style={styles.focusBadge}>
-            <Shield size={14} fill="currentColor" />
-            <span>LOCKED: {activeCategory?.toUpperCase()}</span>
-          </div>
-        )}
-
-        <div style={styles.scrollArea}>
-
-          {/* ✅ UPDATED: Home Section with Home Page link */}
-          <NavSection title="Home">
-            <NavItem to="/" icon={<HomeIcon size={18} />} label="Home" onClick={onClose} />
-            <NavItem to="/live" icon={<Radio size={18} />} label="Live" onClick={onClose} />
-            <NavItem to="/shorts" icon={<Video size={18} />} label="Shorts" onClick={onClose} />
+          <NavSection title="Home" isOpen={open}>
+            <NavItem to="/" icon={<HomeIcon size={18} />} label="Home" isOpen={open} onClick={onClose} />
+            <NavItem to="/live" icon={<Radio size={18} />} label="Live" isOpen={open} onClick={onClose} />
+            <NavItem to="/shorts" icon={<Video size={18} />} label="Shorts" isOpen={open} onClick={onClose} />
           </NavSection>
 
-          {/* Learning Section */}
-          <NavSection title="Learning">
-            <NavItem to="/classroom" icon={<BookOpen size={18} />} label="Classroom" onClick={onClose} />
+          <NavSection title="Learning" isOpen={open}>
+            <NavItem to="/classroom" icon={<BookOpen size={18} />} label="Classroom" isOpen={open} onClick={onClose} />
+            <NavItem to="/vault" icon={<Archive size={18} />} label="My Vault" isOpen={open} onClick={onClose} />
           </NavSection>
 
-          {/* Vault Section */}
-          <NavSection title="Vault">
-            <NavItem to="/vault" icon={<Archive size={18} />} label="My Vault" onClick={onClose} />
-          </NavSection>
-
-          {/* Categories Section */}
-          <NavSection title="Categories">
+          <NavSection title="Categories" isOpen={open}>
             {visibleCategories.map((cat) => (
               <NavItem
                 key={cat.to}
                 to={cat.to}
                 icon={cat.icon}
                 label={cat.label}
+                isOpen={open}
                 onClick={onClose}
               />
             ))}
           </NavSection>
 
-          {/* Focus Section */}
-          <NavSection title="Focus">
-            <NavItem to="/focus" icon={<Target size={18} />} label="Focus Mode" onClick={onClose} />
-            <NavItem to="/history" icon={<History size={18} />} label="History" onClick={onClose} />
+          <NavSection title="Personal" isOpen={open}>
+            <NavItem to="/focus" icon={<Target size={18} />} label="Focus Mode" isOpen={open} onClick={onClose} />
+            <NavItem to="/history" icon={<History size={18} />} label="History" isOpen={open} onClick={onClose} />
           </NavSection>
 
-          {/* Support Section */}
-          <NavSection title="Support">
-            <NavItem to="/feedback" icon={<HelpCircle size={18} />} label="FAQ" onClick={onClose} />
+          <NavSection title="Support" isOpen={open}>
+            <NavItem to="/feedback" icon={<HelpCircle size={18} />} label="FAQ" isOpen={open} onClick={onClose} />
           </NavSection>
-
         </div>
       </aside>
     </>
   );
 }
 
-// --- HELPER COMPONENTS ---
-
-const NavSection = ({ title, children }) => (
-  <div style={{ marginBottom: "24px" }}>
-    <p style={styles.sectionTitle}>{title}</p>
+const NavSection = ({ title, children, isOpen }) => (
+  <div className="mb-6">
+    {isOpen && <p className="px-6 mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted">{title}</p>}
     {children}
   </div>
 );
 
-const NavItem = ({ to, icon, label, onClick }) => (
+const NavItem = ({ to, icon, label, isOpen, onClick }) => (
   <NavLink
     to={to}
     onClick={onClick}
-    style={({ isActive }) => ({
-      ...styles.navItem,
-      background: isActive ? "rgba(255, 68, 68, 0.08)" : "transparent",
-      color: isActive ? "#ff4444" : "var(--text-primary)",
-      borderRight: isActive ? "3px solid #ff4444" : "3px solid transparent",
-      fontWeight: isActive ? "600" : "400"
-    })}
+    className={({ isActive }) => `
+      flex items-center gap-4 px-6 py-3 transition-all duration-200 group
+      ${isActive 
+        ? 'bg-accent/5 text-accent border-r-4 border-accent' 
+        : 'text-muted hover:bg-base hover:text-primary'}
+    `}
   >
-    <span style={{ marginRight: "14px", opacity: 0.9 }}>{icon}</span>
-    {label}
+    <div className={`shrink-0 transition-transform group-active:scale-90`}>{icon}</div>
+    {isOpen && <span className="text-sm font-bold tracking-tight">{label}</span>}
   </NavLink>
 );
-
-// --- STYLES ---
-
-const styles = {
-  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", zIndex: 998 },
-  sidebar: {
-    position: "fixed", top: "60px", left: 0, width: "260px", height: "calc(100vh - 60px)",
-    background: "var(--card-bg)", borderRight: "1px solid var(--border-color)", zIndex: 999, padding: "24px 0"
-  },
-  scrollArea: { height: "100%", overflowY: "auto", paddingRight: "5px" },
-  sectionTitle: {
-    fontSize: "11px", color: "var(--text-secondary)", fontWeight: "700", padding: "0 24px 8px",
-    textTransform: "uppercase", letterSpacing: "1.2px"
-  },
-  navItem: {
-    display: "flex", alignItems: "center", padding: "12px 24px",
-    textDecoration: "none", fontSize: "14px", transition: "all 0.2s ease"
-  },
-  focusBadge: {
-    margin: "0 20px 20px",
-    background: "linear-gradient(45deg, #ff4444, #cc0000)",
-    color: "white",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    fontSize: "11px",
-    fontWeight: "800",
-    letterSpacing: "0.5px",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    boxShadow: "0 4px 12px rgba(255, 68, 68, 0.3)"
-  }
-};
 
 export default Sidebar;
