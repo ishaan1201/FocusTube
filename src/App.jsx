@@ -60,19 +60,26 @@ function App() {
   // 1. THE STOPWATCH
   useEffect(() => {
     let interval = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft((t) => t - 1), 1000);
-    } else if (timeLeft === 0 && isActive) {
-      setIsActive(false);
-      setSessionStarted(false);
-      setShowSessionDone(true);
-      new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
-      if (Notification.permission === "granted") {
-        new Notification("Curio", { body: "⏰ Time's up! Great session." });
-      }
+    if (isActive) {
+      interval = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(interval);
+            setIsActive(false);
+            setSessionStarted(false);
+            setShowSessionDone(true);
+            new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+            if (Notification.permission === "granted") {
+              new Notification("Curio", { body: "⏰ Time's up! Great session." });
+            }
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
+  }, [isActive]);
 
   // 2. THE AI WALKIE-TALKIE RECEIVER (Global Timer & Music)
   useEffect(() => {

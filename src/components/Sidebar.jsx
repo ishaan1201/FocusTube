@@ -21,7 +21,7 @@ function Sidebar({ open, onClose, focusMode, activeCategory }) {
 
   // 🛡️ FILTER LOGIC: If Focus Mode is ON, only show the locked category
   const visibleCategories = focusMode
-    ? CATEGORIES.filter(c => c.label === activeCategory)
+    ? CATEGORIES.filter(c => c.to.includes(activeCategory?.toLowerCase().replace(/\s+/g, '-')))
     : CATEGORIES;
 
   return (

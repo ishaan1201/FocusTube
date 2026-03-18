@@ -47,7 +47,7 @@ function Home({ query }) {
     const search = query ? `${query} tutorial | documentary | course` : "science|technology|coding|documentary|history|math";
     const data = await fetchSearchVideos(search, pageToken);
     
-    setVideos(prev => [...prev, ...processVideos(data.items)]);
+    setVideos(prev => [...prev, ...processVideos(data.items || [])]);
     setPageToken(data.nextPageToken || "");
   }, [pageToken, query]);
 

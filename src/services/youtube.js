@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { jsPDF } from "jspdf";
 import { getUserPreferences } from '../utils/localization';
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
@@ -17,12 +16,15 @@ const getMockVideos = (count, type = 'video') => {
       thumbnails: { high: { url: `https://picsum.photos/seed/${i}/640/360` } },
       description: "Placeholder due to API quota limit.",
       liveBroadcastContent: type === 'live' ? 'live' : 'none',
-      publishedAt: new Date().toISOString()
+      publishedAt: new Date().toISOString(),
+      channelId: `mock_channel_${i}`
     },
     contentDetails: { duration: type === 'short' ? 'PT45S' : 'PT15M30S' },
     statistics: { viewCount: "1000", likeCount: "50" },
     liveStreamingDetails: { concurrentViewers: "500" },
-    duration: type === 'short' ? '0:45' : '15:30'
+    duration: type === 'short' ? '0:45' : '15:30',
+    views: "1000",
+    channelThumbnail: "https://via.placeholder.com/88"
   }));
 };
 
@@ -50,13 +52,11 @@ export const formatDuration = (isoDuration) => {
 // 🔍 CORE API FUNCTIONS
 // ----------------------------------------------------------------------
 
-// ✅ NEW: Batch fetch for statistics & live details
 export const fetchVideoDetailsBatch = async (videoIds) => {
   if (!videoIds) return [];
   try {
     const res = await axios.get(`${BASE_URL}/videos`, {
       params: {
-        // 🚀 THE FIX: We specifically demand the liveStreamingDetails here!
         part: 'snippet,contentDetails,statistics,liveStreamingDetails',
         id: videoIds,
         key: API_KEY
@@ -74,7 +74,7 @@ export const fetchVideoDetails = async (id) => {
     const res = await axios.get(`${BASE_URL}/videos`, {
       params: { part: 'snippet,statistics,contentDetails,liveStreamingDetails', id, key: API_KEY }
     });
-    return res.data.items[0];
+    return res.data.items?.[0] || getMockVideos(1)[0];
   } catch (err) { return getMockVideos(1)[0]; }
 };
 
@@ -83,7 +83,7 @@ export const fetchChannelDetails = async (id) => {
     const res = await axios.get(`${BASE_URL}/channels`, {
       params: { part: 'snippet,statistics,brandingSettings', id, key: API_KEY }
     });
-    return res.data.items[0];
+    return res.data.items?.[0];
   } catch (err) {
     return {
       snippet: { title: "Mock Channel", thumbnails: { default: { url: "https://via.placeholder.com/80" } } },
@@ -97,7 +97,7 @@ export const fetchPlaylistItems = async (playlistId) => {
     const res = await axios.get(`${BASE_URL}/playlistItems`, {
       params: { part: 'snippet,contentDetails', playlistId, maxResults: 50, key: API_KEY }
     });
-    return res.data.items;
+    return res.data.items || [];
   } catch (err) { return getMockVideos(10); }
 };
 
@@ -106,7 +106,7 @@ export const fetchChannelPlaylists = async (channelId, pageToken = "") => {
     const res = await axios.get(`${BASE_URL}/playlists`, {
       params: { part: 'snippet,contentDetails', channelId, maxResults: 20, pageToken, key: API_KEY }
     });
-    return { items: res.data.items, nextPageToken: res.data.nextPageToken };
+    return { items: res.data.items || [], nextPageToken: res.data.nextPageToken || "" };
   } catch (err) { return { items: [], nextPageToken: "" }; }
 };
 
@@ -116,12 +116,13 @@ export const fetchChannelVideosWithDuration = async (channelId, pageToken = "") 
       params: { part: 'snippet', channelId, maxResults: 50, order: 'date', type: 'video', pageToken, key: API_KEY }
     });
 
-    const videoIds = searchRes.data.items.map(v => v.id.videoId).filter(Boolean).join(',');
-    if (!videoIds) return { items: [], nextPageToken: searchRes.data.nextPageToken };
+    const itemsList = searchRes.data.items || [];
+    const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
+    if (!videoIds) return { items: [], nextPageToken: searchRes.data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
 
-    const items = searchRes.data.items.map(item => {
+    const items = itemsList.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       return {
         ...item,
@@ -131,7 +132,7 @@ export const fetchChannelVideosWithDuration = async (channelId, pageToken = "") 
         duration: formatDuration(detail?.contentDetails?.duration)
       };
     });
-    return { items, nextPageToken: searchRes.data.nextPageToken };
+    return { items, nextPageToken: searchRes.data.nextPageToken || "" };
   } catch (err) { return { items: getMockVideos(20), nextPageToken: "" }; }
 };
 
@@ -149,12 +150,13 @@ export const fetchTrendingVideos = async (token = '', categoryId = '0') => {
       }
     });
 
-    const items = res.data.items.map(item => ({
+    const itemsList = res.data.items || [];
+    const items = itemsList.map(item => ({
       ...item,
       duration: formatDuration(item.contentDetails?.duration)
     }));
 
-    return { items, nextPageToken: res.data.nextPageToken };
+    return { items, nextPageToken: res.data.nextPageToken || "" };
   } catch (err) {
     return { items: getMockVideos(20), nextPageToken: '' };
   }
@@ -162,10 +164,7 @@ export const fetchTrendingVideos = async (token = '', categoryId = '0') => {
 
 export const fetchSearchVideos = async (query, token = '', duration = 'any', eventType = null) => {
   try {
-    // 🧠 Automatically detect the user's system language and country
     const { langCode, regionCode, langName } = getUserPreferences();
-
-    // 🛡️ THE DYNAMIC LOCK: Force the algorithm using their specific language
     const strictQuery = `${query} (${langName})`;
 
     const params = {
@@ -176,25 +175,24 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
       pageToken: token,
       key: API_KEY,
       safeSearch: "moderate",
-      regionCode: regionCode,          // Automatically injects their country code (e.g., "IN")
-      relevanceLanguage: langCode      // Automatically injects their language code (e.g., "en" or "hi")
+      regionCode,
+      relevanceLanguage: langCode
     };
 
     if (eventType) params.eventType = eventType;
     else params.videoDuration = duration;
 
     const res = await axios.get(`${BASE_URL}/search`, { params });
-    const videoIds = res.data.items.map(v => v.id.videoId).filter(Boolean).join(',');
+    const itemsList = res.data.items || [];
+    const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
 
-    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken };
+    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
-
-    // 🧠 THE UPGRADE: Extract unique channel IDs and fetch their real PFPs in one batch
-    const uniqueChannelIds = [...new Set(res.data.items.map(v => v.snippet.channelId))].filter(Boolean);
+    const uniqueChannelIds = [...new Set(itemsList.map(v => v.snippet.channelId))].filter(Boolean);
     const channelsData = await fetchChannelsByIds(uniqueChannelIds);
 
-    const items = res.data.items.map(item => {
+    const items = itemsList.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       const channelMatch = channelsData.find(c => c.id === item.snippet.channelId);
 
@@ -205,21 +203,16 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
         liveStreamingDetails: detail?.liveStreamingDetails,
         duration: formatDuration(detail?.contentDetails?.duration),
         views: detail?.statistics?.viewCount,
-        // Inject the real PFP URL straight into the video object
         channelThumbnail: channelMatch?.snippet?.thumbnails?.default?.url 
       };
     });
 
-    return { items, nextPageToken: res.data.nextPageToken };
+    return { items, nextPageToken: res.data.nextPageToken || "" };
   } catch (err) {
     const type = eventType === 'live' ? 'live' : (duration === 'short' ? 'short' : 'video');
     return { items: getMockVideos(20, type), nextPageToken: '' };
   }
 };
-
-// ----------------------------------------------------------------------
-// ⚡ SHORTS & LIVE SYNCED FUNCTIONS
-// ----------------------------------------------------------------------
 
 export const fetchShorts = async (pageToken = "") => {
   try {
@@ -235,10 +228,13 @@ export const fetchShorts = async (pageToken = "") => {
       }
     });
 
-    const videoIds = res.data.items.map(v => v.id.videoId).join(',');
+    const itemsList = res.data.items || [];
+    const videoIds = itemsList.map(v => v.id.videoId).join(',');
+    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
+
     const details = await fetchVideoDetailsBatch(videoIds);
 
-    const items = res.data.items.map(item => {
+    const items = itemsList.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       return {
         ...item,
@@ -246,7 +242,7 @@ export const fetchShorts = async (pageToken = "") => {
       };
     });
 
-    return { items, nextPageToken: res.data.nextPageToken };
+    return { items, nextPageToken: res.data.nextPageToken || "" };
   } catch (error) {
     return { items: getMockVideos(12, 'short'), nextPageToken: "" };
   }
@@ -262,46 +258,14 @@ export const fetchLiveVideos = async () => {
   }
 };
 
-// ----------------------------------------------------------------------
-// 💾 LOCAL STORAGE & PDF HELPERS
-// ----------------------------------------------------------------------
-
-export const updateWatchHistory = (video, seconds) => {
-  const history = JSON.parse(localStorage.getItem("focus_history") || "[]");
-  const videoId = video.id?.videoId || video.id;
-  const existingIdx = history.findIndex(v => v.id === videoId);
-
-  const item = {
-    id: videoId,
-    title: video.snippet.title,
-    thumbnail: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url,
-    lastWatched: new Date().toISOString(),
-    resumeTime: seconds,
-    duration: video.duration || formatDuration(video.contentDetails?.duration)
-  };
-
-  if (existingIdx > -1) history.splice(existingIdx, 1);
-  history.unshift(item);
-  localStorage.setItem("focus_history", JSON.stringify(history.slice(0, 50)));
-};
-
-export const exportNotesToPDF = (notes, title) => {
-  const doc = new jsPDF();
-  doc.setFont("helvetica", "bold").setTextColor(255, 0, 0).text("STUDY NOTES: " + title.toUpperCase(), 10, 20);
-  doc.setFont("helvetica", "normal").setTextColor(0, 0, 0);
-  const cleanNotes = notes.replace(/[^\x20-\x7E]/g, "");
-  const splitText = doc.splitTextToSize(cleanNotes, 180);
-  doc.text(splitText, 10, 40);
-  doc.save(`${title}_Notes.pdf`);
-};
-
 export const fetchChannelsByIds = async (channelIds) => {
+  if (!channelIds || channelIds.length === 0) return [];
   try {
     const idsString = channelIds.slice(0, 50).join(',');
     const res = await axios.get(`${BASE_URL}/channels`, {
       params: { part: 'snippet,statistics', id: idsString, key: API_KEY }
     });
-    return res.data.items;
+    return res.data.items || [];
   } catch (err) { return []; }
 };
 
@@ -310,11 +274,12 @@ export const searchChannelSpecific = async (channelId, query, pageToken = "") =>
     const res = await axios.get(`${BASE_URL}/search`, {
       params: { part: 'snippet', channelId, q: query, maxResults: 20, type: 'video', pageToken, key: API_KEY }
     });
-    const videoIds = res.data.items.map(v => v.id.videoId).filter(Boolean).join(',');
-    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken };
+    const itemsList = res.data.items || [];
+    const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
+    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
-    const items = res.data.items.map(item => {
+    const items = itemsList.map(item => {
       const detail = details.find(d => d.id === item.id.videoId);
       return {
         ...item,
@@ -322,6 +287,6 @@ export const searchChannelSpecific = async (channelId, query, pageToken = "") =>
         views: detail?.statistics?.viewCount
       };
     });
-    return { items, nextPageToken: res.data.nextPageToken };
+    return { items, nextPageToken: res.data.nextPageToken || "" };
   } catch (err) { return { items: [], nextPageToken: "" }; }
 };
