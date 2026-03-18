@@ -145,3 +145,50 @@ export const fetchDocuments = async (user, type) => {
     return [];
   }
 };
+
+
+// ==========================================
+// 🕒 CLOUD WATCH HISTORY (Resume Time)
+// ==========================================
+export const syncWatchHistory = async (user, video, resumeTime) => {
+  const videoId = video.id?.videoId || video.id;
+  const entry = {
+    video_id: videoId,
+    title: video.snippet?.title || video.title,
+    thumbnail_url: video.snippet?.thumbnails?.high?.url || video.snippet?.thumbnails?.default?.url || video.thumbnail_url,
+    channel_title: video.snippet?.channelTitle || video.channel_title || "YouTube Channel",
+    duration: video.contentDetails?.duration || video.duration || "0:00",
+    resume_time: resumeTime,
+    last_watched: new Date().toISOString()
+  };
+
+  if (user && !user.is_anonymous) {
+    // ☁️ AUTHENTICATED: Upsert to Supabase (updates if exists, inserts if new)
+    await supabase.from('watch_history').upsert({
+      user_id: user.id,
+      ...entry
+    }, { onConflict: 'user_id, video_id' });
+  } else {
+    // 🏠 GUEST MODE: LocalStorage
+    let history = JSON.parse(localStorage.getItem("focus_history") || "[]");
+    const existingIdx = history.findIndex(v => (v.video_id || v.id) === videoId);
+    if (existingIdx > -1) {
+      history[existingIdx] = { ...history[existingIdx], ...entry };
+    } else {
+      history.unshift(entry);
+    }
+    localStorage.setItem("focus_history", JSON.stringify(history.slice(0, 50)));
+  }
+};
+
+export const getWatchHistory = async (user) => {
+  if (user && !user.is_anonymous) {
+    const { data } = await supabase
+      .from('watch_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('last_watched', { ascending: false });
+    return data || [];
+  }
+  return JSON.parse(localStorage.getItem("focus_history") || "[]");
+};

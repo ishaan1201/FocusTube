@@ -3,8 +3,9 @@ import YouTube from "react-youtube";
 import { RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logWatchTime } from "../../utils/storage";
+import { syncWatchHistory } from "../../services/userData";
 
-export default function VideoPlayer({ id, video, startTime, focusMode }) {
+export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const playerRef = useRef(null);
 
@@ -16,26 +17,21 @@ export default function VideoPlayer({ id, video, startTime, focusMode }) {
         if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
           try {
             const playerState = await playerRef.current.getPlayerState();
-            if (playerState === 1) { logWatchTime(3); }
-            const currentTime = await playerRef.current.getCurrentTime();
-            if (currentTime > 5) {
-              const history = JSON.parse(localStorage.getItem("focus_history") || "[]");
-              const existingIdx = history.findIndex(v => v.id === id);
-              const entry = {
-                id, title: video.snippet.title, thumbnail: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.default?.url,
-                channel: video.snippet.channelTitle, duration: video.contentDetails?.duration || "0:00",
-                timestamp: Date.now(), lastWatched: new Date().toISOString(), resumeTime: currentTime 
-              };
-              if (existingIdx > -1) { history[existingIdx] = { ...history[existingIdx], ...entry }; } 
-              else { history.unshift(entry); }
-              try { localStorage.setItem("focus_history", JSON.stringify(history.slice(0, 50))); } catch(e) {}
+            if (playerState === 1) { 
+              logWatchTime(15); 
+              
+              const currentTime = await playerRef.current.getCurrentTime();
+              if (currentTime > 5) {
+                // 🚀 Silently syncs to DB or LocalStorage based on login status
+                syncWatchHistory(user, video, currentTime).catch(console.error);
+              }
             }
           } catch (err) {}
         }
-      }, 3000);
+      }, 15000); // 🚀 Increased to 15 seconds to save database bandwidth
     }
     return () => clearInterval(interval);
-  }, [video, id]);
+  }, [video, id, user]);
 
   return (
     <div style={focusMode ? styles.playerWrapperFocus : styles.playerWrapper}>

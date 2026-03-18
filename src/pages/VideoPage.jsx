@@ -121,7 +121,7 @@ export default function VideoPage() {
           ...(focusMode ? styles.videoColumnFocus : styles.videoColumn),
           pointerEvents: isDragging ? "none" : "auto" 
         }}>
-          <VideoPlayer id={id} video={video} startTime={startTime} focusMode={focusMode} />
+          <VideoPlayer id={id} video={video} startTime={startTime} focusMode={focusMode} user={user} />
           {focusMode ? (
             <div style={{ marginTop: "24px" }}>
               <h1 style={{ fontSize: "20px", color: "#fff", margin: 0 }}>{video.snippet.title}</h1>
