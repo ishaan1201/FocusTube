@@ -32,7 +32,11 @@ export default function FeedbackForm({ onClose }) {
 
     const { error } = await supabase.from("feedback").insert([feedbackData]);
 
-    if (!error) {
+    if (error) {
+      console.error("Supabase Feedback Error:", error);
+      alert(`Submission failed: ${error.message}`);
+    } else {
+      console.log("Feedback submitted successfully to Supabase");
       sendDiscordNotification(form);
     }
 
