@@ -7,6 +7,7 @@ import { syncWatchHistory } from "../../services/userData";
 
 export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
   const [isVideoEnded, setIsVideoEnded] = useState(false);
+  const [playerError, setPlayerError] = useState(null);
   const playerRef = useRef(null);
 
   // 🚀 Cache the YouTube options so they don't trigger iframe reloads
@@ -56,6 +57,13 @@ export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
           if (startSecs > 0) e.target.seekTo(startSecs, true);
         }}
         onStateChange={(e) => { if (e.data === 0) setIsVideoEnded(true); }}
+        onError={(e) => {
+          if (e.data === 101 || e.data === 150) {
+            setPlayerError("The creator of this video disabled embedding.");
+          } else {
+            setPlayerError("This video is age-restricted or copyright-blocked.");
+          }
+        }}
         className="youtube-player"
         style={{ width: "100%", height: "100%" }}
       />
@@ -66,6 +74,23 @@ export default function VideoPlayer({ id, video, startTime, focusMode, user }) {
             <button onClick={() => window.location.reload()} style={styles.overlayBtn}><RotateCcw size={20} /> Replay</button>
             <Link to="/classroom" style={{ ...styles.overlayBtn, background: "#4caf50", color: "white", textDecoration: "none" }}>Next Lesson</Link>
           </div>
+        </div>
+      )}
+
+      {playerError && (
+        <div style={styles.endOverlay}>
+          <h2 style={{ color: "#ff4444", marginBottom: "10px", textAlign: "center" }}>Playback Blocked 🛑</h2>
+          <p style={{ color: "#ccc", marginBottom: "24px", maxWidth: "80%", textAlign: "center" }}>
+            {playerError}
+          </p>
+          <a 
+            href={`https://www.youtube.com/watch?v=${id}`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ ...styles.overlayBtn, textDecoration: "none", background: "#ff0000", color: "white" }}
+          >
+            Watch directly on YouTube
+          </a>
         </div>
       )}
     </div>
