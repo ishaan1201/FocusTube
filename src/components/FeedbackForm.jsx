@@ -21,7 +21,10 @@ export default function FeedbackForm({ onClose }) {
   const submit = async () => {
     setLoading(true);
 
-    const { error } = await supabase.from("feedback").insert([form]);
+    const priority = form.rating <= 4 ? "high" : form.rating <= 7 ? "medium" : "low";
+    const feedbackData = { ...form, priority };
+
+    const { error } = await supabase.from("feedback").insert([feedbackData]);
 
     if (!error) {
       sendDiscordNotification(form);
