@@ -111,6 +111,11 @@ export default function Profile() {
     );
   }
 
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen bg-black text-white pb-20 relative overflow-x-hidden">
       {/* Background Decorative Elements */}
@@ -127,9 +132,17 @@ export default function Profile() {
           >
             <ArrowLeft size={16} /> Back
           </button>
-          <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1 rounded-full border border-white/5">
-            <Shield size={14} className="text-purple-400" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{profile?.role || 'Member'}</span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-full border border-red-500/20 transition-all font-bold text-[10px] uppercase tracking-widest"
+            >
+              <LogOut size={14} /> Logout
+            </button>
+            <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1 rounded-full border border-white/5 h-fit">
+              <Shield size={14} className="text-purple-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{profile?.role || 'Member'}</span>
+            </div>
           </div>
         </div>
 
