@@ -49,8 +49,14 @@ export default function VideoAIChat({ id, video, noteText, setNoteText }) {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     
     if (!isLoadingChat && chatMessages.length > 0) {
+      console.log("VideoAIChat: Triggering save for", id);
       // Fire and forget: saves to Supabase Bucket or LocalStorage depending on user status
-      saveDocument(user, JSON.stringify(chatMessages), 'ai_insight', id).catch(console.error);
+      saveDocument(user, JSON.stringify(chatMessages), 'ai_insight', id)
+        .then(success => {
+          if (success) console.log("VideoAIChat: Save successful");
+          else console.error("VideoAIChat: Save failed");
+        })
+        .catch(console.error);
     }
   }, [chatMessages, id, user, isLoadingChat]);
 

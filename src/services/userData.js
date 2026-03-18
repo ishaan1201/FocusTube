@@ -79,6 +79,7 @@ export const fetchVideoList = async (user, listType = 'saved') => {
 // ==========================================
 
 export const saveDocument = async (user, content, type, videoId) => {
+  console.log(`Saving ${type} for video ${videoId}`, { hasUser: !!user });
   if (!user) {
     const storageKey = `focus_${type}s`;
     let list = JSON.parse(localStorage.getItem(storageKey) || "[]");
@@ -94,16 +95,19 @@ export const saveDocument = async (user, content, type, videoId) => {
   }
   
   const bucketName = type === 'note' ? 'notes_files' : 'ai_insights_files';
-  const fileName = `${videoId}_doc.txt`; // Simplified for consistent lookup
+  // Standardize the type check: 'note' vs 'ai_insight'
+  const finalBucket = (type === 'note' || type === 'notes') ? 'notes_files' : 'ai_insights_files';
+  const fileName = `${videoId}_doc.txt`; 
 
   const filePath = `${user.id}/${fileName}`;
   const fileBlob = new Blob([content], { type: 'text/plain' });
   
-  const { error } = await supabase.storage
-    .from(bucketName)
-    .upload(filePath, fileBlob, { upsert: true });
-    
-  if (error) console.error(`Error uploading ${type}:`, error);
+    const { error } = await supabase.storage
+      .from(finalBucket)
+      .upload(filePath, fileBlob, { upsert: true });
+      
+    if (error) console.error(`Error uploading ${type} to ${finalBucket}:`, error);
+    else console.log(`Successfully uploaded ${type} to ${finalBucket}`);
   return !error;
 };
 
