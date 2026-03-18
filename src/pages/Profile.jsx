@@ -4,7 +4,8 @@ import { supabase } from "../services/supabase";
 import { 
   User, Camera, Mail, Save, Loader2, ArrowLeft, 
   Shield, Twitter, Github, Globe, Image as ImageIcon,
-  LogOut, Cloud, Smartphone, Lock, AlertTriangle, Zap
+  LogOut, Cloud, Smartphone, Lock, AlertTriangle, Zap,
+  Chrome
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
