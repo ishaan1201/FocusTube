@@ -10,7 +10,7 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   const [showAIChat, setShowAIChat] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const handleSearchSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -123,10 +123,10 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
         <div onClick={handleProfileClick} style={{ cursor: "pointer" }}>
           {user ? (
             <img
-              src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}`}
+              src={profile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || user.email}`}
               alt="Profile"
               style={styles.avatar}
-              title={`Settings: ${user.user_metadata?.full_name || user.email}`}
+              title={`Settings: ${profile?.full_name || user.email}`}
             />
           ) : (
             <button style={styles.loginBtn}>
