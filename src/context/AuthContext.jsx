@@ -37,6 +37,15 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         await fetchProfile(session.user.id);
+      } else {
+        // 🚀 THE MAGIC: Silently create a guest account if no session exists
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError) throw anonError;
+        
+        if (anonData?.user) {
+          setUser(anonData.user);
+          await fetchProfile(anonData.user.id);
+        }
       }
     } catch (err) {
       console.error("Session fetch error:", err);
