@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff } from "lucide-react";
+import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import GoogleTranslate from "./GoogleTranslate";
