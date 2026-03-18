@@ -181,35 +181,67 @@ export default function AuthPage() {
       </div>
 
       {/* ========================================== */}
-      {/* 👉 RIGHT PANEL: ANIMATED TEXTURE (Hidden on Mobile) */}
+      {/* 👉 RIGHT PANEL: CALM & RELAXING VISUAL */}
       {/* ========================================== */}
-      <div className="hidden lg:flex flex-1 relative bg-[#050505] items-center justify-center overflow-hidden">
+      <div className="hidden lg:flex flex-1 relative items-center justify-center overflow-hidden bg-slate-900">
         
-        {/* Animated Orbs */}
-        <motion.div animate={{ x: [0, 40, 0], y: [0, -40, 0] }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[10%] left-[20%] w-[400px] h-[400px] bg-indigo-600/30 blur-[120px] rounded-full mix-blend-screen" />
-        <motion.div animate={{ x: [0, -40, 0], y: [0, 40, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute bottom-[10%] right-[20%] w-[400px] h-[400px] bg-blue-600/30 blur-[120px] rounded-full mix-blend-screen" />
-        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} className="absolute top-[40%] right-[40%] w-[300px] h-[300px] bg-purple-600/20 blur-[100px] rounded-full mix-blend-screen" />
-
-        {/* Floating Glass Element */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.5 }}
-          className="relative z-10 bg-white/5 backdrop-blur-2xl border border-white/10 p-10 rounded-[2rem] shadow-2xl max-w-md text-center"
+        {/* Extremely slow "breathing" background image for a calming effect */}
+        <motion.div
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 z-0"
         >
-          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/5">
-            <Sparkles className="text-blue-400" size={32} />
-          </div>
-          <h2 className="text-2xl font-black text-white mb-4">Master Your Focus.</h2>
-          <p className="text-zinc-400 leading-relaxed text-sm">
-            FocusTube filters out the noise, turning YouTube into a dedicated, distraction-free learning environment powered by AI.
+          <img
+            src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2070&auto=format&fit=crop" 
+            alt="Serene landscape"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/30 to-slate-900/40" />
+        </motion.div>
+
+        {/* 🌟 NEW: Subtle, slow-moving dust motes / fireflies */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-white rounded-full mix-blend-screen shadow-[0_0_8px_2px_rgba(255,255,255,0.4)]"
+              initial={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                opacity: 0,
+                scale: Math.random() * 0.5 + 0.5,
+              }}
+              animate={{
+                top: [`${Math.random() * 100}%`, `${Math.random() * 100 - 15}%`],
+                opacity: [0, Math.random() * 0.4 + 0.2, 0],
+              }}
+              transition={{
+                duration: Math.random() * 15 + 15, // Ultra slow (15-30 seconds)
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: Math.random() * 10,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Minimalist text */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.5, delay: 0.5 }}
+          className="relative z-10 p-12 max-w-lg text-center flex flex-col items-center"
+        >
+          <h2 className="text-3xl font-serif italic text-white/90 mb-6 tracking-wide drop-shadow-lg">
+            "Quiet the mind, and the soul will speak."
+          </h2>
+          <div className="w-12 h-[1px] bg-white/30 mb-6" />
+          <p className="text-white/50 text-xs font-bold tracking-[0.3em] uppercase">
+            Take a deep breath
           </p>
         </motion.div>
 
-        {/* Subtle grid overlay for texture */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
       </div>
-
     </div>
   );
 }
