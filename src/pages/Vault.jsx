@@ -229,7 +229,7 @@ function Vault() {
              <NavIcon to="/history" icon={<History />} label="History" />
              <NavIcon to="/liked" icon={<Heart />} label="Liked" />
              <NavIcon to="/saved" icon={<Bookmark />} label="Saved" />
-             <NavIcon to="/insights" icon={<TrendingUp />} label="Stats" />
+             <NavIcon to="/insights" icon={<Sparkles />} label="AI Insights" />
           </div>
         </div>
       </div>
