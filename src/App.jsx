@@ -166,6 +166,11 @@ function AppShell({
 }) {
   const location = useLocation();
   const isLanding = location.pathname === "/landing";
+  const isAuthPage = location.pathname === "/auth";
+
+  if (isAuthPage) {
+    return <main className="w-full min-h-screen bg-black">{<AuthPage />}</main>;
+  }
 
   return (
     <div style={{ color: "white", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
