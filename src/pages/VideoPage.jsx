@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, Minimize, FileText, Sparkles } from "lucide-react";
 import { fetchVideoDetails, fetchChannelDetails } from "../services/youtube";
@@ -58,6 +58,11 @@ export default function VideoPage() {
     };
     init();
   }, [id]);
+
+  // 🚀 MEMOIZE THE PLAYER: Prevents iframe flickering during rapid panel resizing
+  const memoizedPlayer = useMemo(() => {
+    return <VideoPlayer id={id} video={video} startTime={startTime} focusMode={focusMode} user={user} />;
+  }, [id, video, startTime, focusMode, user]);
 
   // 🚀 BUTTER-SMOOTH MOUSE DRAG LOGIC
   useEffect(() => {
@@ -121,7 +126,9 @@ export default function VideoPage() {
           ...(focusMode ? styles.videoColumnFocus : styles.videoColumn),
           pointerEvents: isDragging ? "none" : "auto" 
         }}>
-          <VideoPlayer id={id} video={video} startTime={startTime} focusMode={focusMode} user={user} />
+          {/* 🚀 Render the cached player instead of a fresh one */}
+          {memoizedPlayer}
+          
           {focusMode ? (
             <div style={{ marginTop: "24px" }}>
               <h1 style={{ fontSize: "20px", color: "#fff", margin: 0 }}>{video.snippet.title}</h1>
