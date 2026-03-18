@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { jsPDF } from "jspdf";
 import { Clock, Download } from "lucide-react";
 import { saveNoteMetadata } from "../../utils/storage";
+import { exportNotesToPDF } from "../../utils/pdf";
 
 function NotesPanel({ videoId, videoTitle }) {
   const [noteContent, setNoteContent] = useState("");
@@ -50,17 +50,7 @@ function NotesPanel({ videoId, videoTitle }) {
   };
 
   const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold").setTextColor(220, 0, 0).text("STUDY NOTES", 10, 20);
-    doc.setFont("helvetica", "normal").setTextColor(0, 0, 0).setFontSize(10);
-    doc.text(`Video: ${videoTitle || videoId}`, 10, 30);
-    
-    doc.setFontSize(12);
-    const cleanText = noteContent.replace(/[^\x20-\x7E\n]/g, ""); // Strip gibberish
-    const splitText = doc.splitTextToSize(cleanText, 180);
-    doc.text(splitText, 10, 40);
-    
-    doc.save(`${videoTitle}_Notes.pdf`);
+    exportNotesToPDF(noteContent, videoTitle || videoId);
   };
 
   return (

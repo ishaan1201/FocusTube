@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ThumbsUp, Share2, Plus, Check, ChevronDown, ChevronUp } from "lucide-react";
-import { fetchVideoDetails, fetchChannelDetails, updateWatchHistory } from "../services/youtube";
+import { fetchVideoDetails, fetchChannelDetails } from "../services/youtube";
 import NotesPanel from "../components/addons/NotesPanel";
 import LiveChat from "../components/addons/LiveChat"; // ✅ Import Chat
 
