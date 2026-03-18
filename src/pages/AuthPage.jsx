@@ -7,7 +7,7 @@ import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Spa
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, signIn, refreshProfile } = useAuth();
+  const { user, signIn, signInAnonymously, refreshProfile } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -58,6 +58,26 @@ export default function AuthPage() {
       if (error) throw error;
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleGuestEntry = async () => {
+    setLoading(true);
+    try {
+      const { data, error: anonError } = await signInAnonymously();
+      if (anonError || !data?.user) {
+        // Fallback to local guest mode if Supabase Anonymous is disabled
+        console.warn("Supabase Anonymous Auth disabled, falling back to LocalStorage Guest Mode");
+        localStorage.setItem("local_guest_mode", "true");
+      } else {
+        localStorage.removeItem("local_guest_mode");
+      }
+      navigate("/");
+    } catch (err) {
+      localStorage.setItem("local_guest_mode", "true");
+      navigate("/");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -176,7 +196,7 @@ export default function AuthPage() {
               <Chrome size={18} />
               <span className="text-xs font-bold text-white">Google</span>
             </button>
-            <button onClick={() => navigate("/")} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-zinc-400">
+            <button onClick={handleGuestEntry} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-zinc-400">
               <UserCircle size={18} />
               <span className="text-xs font-bold">Stay Guest</span>
             </button>

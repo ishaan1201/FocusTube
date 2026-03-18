@@ -39,9 +39,13 @@ export const AuthProvider = ({ children }) => {
         await fetchProfile(session.user.id);
       } else {
         // 🚀 THE MAGIC: Silent Anonymous Onboarding
+        // If it fails (provider disabled), we proceed with user as null
         const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-        if (anonError) throw anonError;
-        setUser(anonData.user);
+        if (!anonError && anonData?.user) {
+          setUser(anonData.user);
+        } else {
+          console.warn("Anonymous sign-in disabled in Supabase. Proceeding as guest.");
+        }
       }
     } catch (err) {
       console.error("Auth Onboarding error:", err);
