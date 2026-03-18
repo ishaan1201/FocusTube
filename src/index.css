@@ -46,7 +46,7 @@
 
 /* 🚀 Custom Utility Classes using new Theme variables */
 .gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-accent via-primary to-secondary;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-primary;
 }
 
 .glass-card {
