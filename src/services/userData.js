@@ -7,27 +7,9 @@ import { supabase } from "./supabase";
 export const toggleVideoInList = async (user, video, listType = 'saved') => {
   const videoId = video.id?.videoId || video.id;
   
-  // 🏠 FALLBACK: Use LocalStorage if not logged in and local_guest_mode is active
   if (!user) {
-    const storageKey = `focus_${listType}_videos`;
-    let list = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const existingIdx = list.findIndex(v => (v.video_id || v.id) === videoId);
-    
-    if (existingIdx > -1) {
-      list.splice(existingIdx, 1);
-      localStorage.setItem(storageKey, JSON.stringify(list));
-      return false;
-    } else {
-      list.unshift({
-        video_id: videoId,
-        title: video.snippet?.title || video.title,
-        thumbnail_url: video.snippet?.thumbnails?.high?.url || video.thumbnail_url,
-        duration: video.duration || '0:00',
-        saved_at: new Date().toISOString()
-      });
-      localStorage.setItem(storageKey, JSON.stringify(list));
-      return true;
-    }
+    console.error("Auth required. User should be at least anonymous.");
+    return false;
   }
 
   // ☁️ CLOUD: Use Supabase Database
@@ -59,9 +41,7 @@ export const toggleVideoInList = async (user, video, listType = 'saved') => {
 };
 
 export const fetchVideoList = async (user, listType = 'saved') => {
-  if (!user) {
-    return JSON.parse(localStorage.getItem(`focus_${listType}_videos`) || "[]");
-  }
+  if (!user) return [];
   
   const { data, error } = await supabase
     .from('saved_videos')
@@ -79,19 +59,7 @@ export const fetchVideoList = async (user, listType = 'saved') => {
 // ==========================================
 
 export const saveDocument = async (user, content, type, videoId) => {
-  if (!user) {
-    const storageKey = `focus_${type}s`;
-    let list = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const existingIdx = list.findIndex(item => item.videoId === videoId);
-    if (existingIdx > -1) {
-      list[existingIdx].content = content;
-      list[existingIdx].updatedAt = new Date().toISOString();
-    } else {
-      list.push({ videoId, content, updatedAt: new Date().toISOString() });
-    }
-    localStorage.setItem(storageKey, JSON.stringify(list));
-    return true;
-  }
+  if (!user) return false;
   
   const bucketName = type === 'note' ? 'notes_files' : 'ai_insights_files';
   const fileName = `${videoId}_doc.txt`; // Simplified for consistent lookup
@@ -108,9 +76,7 @@ export const saveDocument = async (user, content, type, videoId) => {
 };
 
 export const fetchDocuments = async (user, type) => {
-  if (!user) {
-    return JSON.parse(localStorage.getItem(`focus_${type}s`) || "[]");
-  }
+  if (!user) return [];
   
   const bucketName = type === 'note' ? 'notes_files' : 'ai_insights_files';
 

@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, UserCircle } from "lucide-react";
+import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, UserCircle, LogIn } from "lucide-react";
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, signUp, signIn, signInAnonymously } = useAuth();
+  const { user, signIn, refreshProfile } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -19,9 +19,9 @@ export default function AuthPage() {
     username: "",
   });
 
-  // If already logged in, go home
+  // Redirect if fully logged in (not anonymous)
   useEffect(() => {
-    if (user) navigate("/");
+    if (user && !user.is_anonymous) navigate("/");
   }, [user, navigate]);
 
   const handleSubmit = async (e) => {
@@ -34,12 +34,16 @@ export default function AuthPage() {
         const { error: signInError } = await signIn(formData.email, formData.password);
         if (signInError) throw signInError;
       } else {
-        const { error: signUpError } = await signUp(formData.email, formData.password, {
+        // 🚀 UPGRADE LOGIC: Link email/password to the current anonymous account
+        const { error: upgradeError } = await supabase.auth.updateUser({
+          email: formData.email,
+          password: formData.password,
           data: { username: formData.username }
         });
-        if (signUpError) throw signUpError;
-        alert("Check your email for the confirmation link!");
+        if (upgradeError) throw upgradeError;
+        alert("Verification email sent! Your data is now linked to your new account. 🚀");
       }
+      await refreshProfile();
       navigate("/");
     } catch (err) {
       setError(err.message);
@@ -59,7 +63,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Dynamic Background */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(79,70,229,0.1),transparent_50%)]" />
         <motion.div 
@@ -85,13 +88,13 @@ export default function AuthPage() {
             animate={{ scale: 1 }}
             className="w-16 h-16 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-purple-600/20"
           >
-            <ShieldCheck size={32} className="text-white" />
+            {isLogin ? <LogIn size={32} className="text-white" /> : <Sparkles size={32} className="text-white" />}
           </motion.div>
           <h1 className="text-3xl font-black text-white tracking-tighter">
-            {isLogin ? "Welcome back" : "Create account"}
+            {isLogin ? "Welcome Back" : "Upgrade Account"}
           </h1>
           <p className="text-zinc-500 mt-2">
-            Join FocusTube and master your attention.
+            {isLogin ? "Sign in to sync your FocusTube library." : "Keep all your guest data and sync across devices."}
           </p>
         </div>
 
@@ -111,7 +114,7 @@ export default function AuthPage() {
                   <input
                     type="text"
                     required
-                    placeholder="Username"
+                    placeholder="Preferred Username"
                     className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all text-sm"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -125,7 +128,7 @@ export default function AuthPage() {
               <input
                 type="email"
                 required
-                placeholder="Email address"
+                placeholder="Email Address"
                 className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all text-sm"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -145,11 +148,7 @@ export default function AuthPage() {
             </div>
 
             {error && (
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-red-400 text-xs font-medium px-2"
-              >
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 text-xs font-medium px-2">
                 {error}
               </motion.p>
             )}
@@ -160,7 +159,7 @@ export default function AuthPage() {
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : (
                 <>
-                  {isLogin ? "Sign In" : "Sign Up"}
+                  {isLogin ? "Sign In" : "Create Account"}
                   <ArrowRight size={16} />
                 </>
               )}
@@ -169,39 +168,17 @@ export default function AuthPage() {
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5" /></div>
-            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-zinc-950 px-4 text-zinc-600">Or continue with</span></div>
+            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-zinc-950 px-4 text-zinc-600">Or use social sync</span></div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button 
-              onClick={() => handleOAuth('google')}
-              className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95"
-            >
+            <button onClick={() => handleOAuth('google')} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95">
               <Chrome size={18} />
               <span className="text-xs font-bold text-white">Google</span>
             </button>
-            <button 
-              onClick={async () => {
-                setLoading(true);
-                try {
-                  const { error } = await signInAnonymously();
-                  if (error) {
-                    // Fallback to local guest mode if Supabase Anonymous is disabled
-                    console.warn("Supabase Anonymous Auth disabled, falling back to LocalStorage Guest Mode");
-                    localStorage.setItem("local_guest_mode", "true");
-                  }
-                  navigate("/");
-                } catch (err) {
-                  localStorage.setItem("local_guest_mode", "true");
-                  navigate("/");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-purple-400 border-purple-500/20"
-            >
+            <button onClick={() => navigate("/")} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-zinc-400">
               <UserCircle size={18} />
-              <span className="text-xs font-bold">Guest Mode</span>
+              <span className="text-xs font-bold">Stay Guest</span>
             </button>
           </div>
         </div>
@@ -210,13 +187,9 @@ export default function AuthPage() {
           onClick={() => setIsLogin(!isLogin)}
           className="w-full mt-6 text-zinc-500 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2 group"
         >
-          {isLogin ? "Don't have an account?" : "Already have an account?"}
+          {isLogin ? "New to FocusTube?" : "Already have an account?"}
           <span className="text-purple-400 group-hover:underline">{isLogin ? "Sign up now" : "Log in here"}</span>
         </button>
-
-        <p className="mt-12 text-center text-zinc-600 text-[10px] font-medium leading-relaxed max-w-[280px] mx-auto">
-          By continuing, you agree to FocusTube's <span className="text-zinc-500 hover:underline cursor-pointer">Terms of Service</span> and <span className="text-zinc-500 hover:underline cursor-pointer">Privacy Policy</span>.
-        </p>
       </motion.div>
     </div>
   );

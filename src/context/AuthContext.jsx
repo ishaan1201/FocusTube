@@ -34,13 +34,17 @@ export const AuthProvider = ({ children }) => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
       
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.id);
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+      } else {
+        // 🚀 THE MAGIC: Silent Anonymous Onboarding
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        if (anonError) throw anonError;
+        setUser(anonData.user);
       }
     } catch (err) {
-      console.error("Session error:", err);
+      console.error("Auth Onboarding error:", err);
     } finally {
       setLoading(false);
     }
