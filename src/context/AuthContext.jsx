@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
         .from("profiles")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Profile fetch error:", error);
