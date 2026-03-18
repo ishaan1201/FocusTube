@@ -10,6 +10,7 @@ import AdminLogin from "./pages/AdminLogin";
 import Vault from "./pages/Vault";
 import FeedbackPage from "./pages/FeedbackPage";
 import LandingPage from "./pages/LandingPage";
+import AuthPage from "./pages/AuthPage";
 import SavedPage from "./pages/SavedPage";
 import ShortsPage from "./pages/ShortsPage";
 import Classroom from "./pages/Classroom";
@@ -185,6 +186,7 @@ function AppShell({
           <Routes>
             <Route path="/" element={<Home query={searchQuery} />} />
             <Route path="/landing" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/classroom" element={<Classroom />} />
             <Route path="/category/:slug" element={
               <CategoryPage
