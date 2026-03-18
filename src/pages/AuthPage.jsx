@@ -185,10 +185,15 @@ export default function AuthPage() {
                 setLoading(true);
                 try {
                   const { error } = await signInAnonymously();
-                  if (error) throw error;
+                  if (error) {
+                    // Fallback to local guest mode if Supabase Anonymous is disabled
+                    console.warn("Supabase Anonymous Auth disabled, falling back to LocalStorage Guest Mode");
+                    localStorage.setItem("local_guest_mode", "true");
+                  }
                   navigate("/");
                 } catch (err) {
-                  setError(err.message);
+                  localStorage.setItem("local_guest_mode", "true");
+                  navigate("/");
                 } finally {
                   setLoading(false);
                 }
