@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Search, Settings, User, Menu, Pause, Play, Sparkles, VolumeX, Mic, MicOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { loginWithGoogle } from "../services/firebase";
 import GoogleTranslate from "./GoogleTranslate";
 import GlobalAIChat from "./GlobalAIChat";
 
@@ -11,7 +10,7 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   const [showAIChat, setShowAIChat] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
 
   const handleSearchSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -36,14 +35,10 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   };
 
   const handleProfileClick = async () => {
-    if (currentUser) {
+    if (user) {
       navigate("/profile");
     } else {
-      try {
-        await loginWithGoogle();
-      } catch (error) {
-        console.error("Login failed:", error);
-      }
+      navigate("/auth");
     }
   };
 
@@ -126,12 +121,12 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
         />
 
         <div onClick={handleProfileClick} style={{ cursor: "pointer" }}>
-          {currentUser ? (
+          {user ? (
             <img
-              src={currentUser.photoURL}
+              src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email}`}
               alt="Profile"
               style={styles.avatar}
-              title={`Settings: ${currentUser.displayName}`}
+              title={`Settings: ${user.user_metadata?.full_name || user.email}`}
             />
           ) : (
             <button style={styles.loginBtn}>

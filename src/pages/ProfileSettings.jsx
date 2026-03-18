@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { loginWithGoogle, logoutUser, updateUserProfile } from "../services/firebase";
-import { LogOut, User, Save, Camera } from "lucide-react";
+import { supabase } from "../services/supabase";
+import { LogOut, User, Save, Camera, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-function Settings() {
-    const { currentUser, userProfile } = useAuth();
+function ProfileSettings() {
+    const { user, profile, signOut } = useAuth();
+    const navigate = useNavigate();
 
     // Form State
     const [name, setName] = useState("");
@@ -14,27 +16,33 @@ function Settings() {
 
     // Load existing data when user loads
     useEffect(() => {
-        if (userProfile) {
-            setName(userProfile.name || "");
-            setBio(userProfile.bio || "");
-        } else if (currentUser) {
-            setName(currentUser.displayName || "");
+        if (profile) {
+            setName(profile.full_name || "");
+            setBio(profile.bio || "");
+        } else if (user) {
+            setName(user.user_metadata?.full_name || "");
         }
-    }, [userProfile, currentUser]);
-
-    const handleLogin = async () => {
-        try { await loginWithGoogle(); } catch (e) { alert(e.message); }
-    };
+    }, [profile, user]);
 
     const handleLogout = async () => {
-        await logoutUser();
-        window.location.reload();
+        await signOut();
+        navigate("/");
     };
 
     const handleSave = async () => {
         setStatus("Saving...");
         try {
-            await updateUserProfile(currentUser.uid, name, bio);
+            const { error } = await supabase
+                .from("profiles")
+                .update({ 
+                    full_name: name, 
+                    bio: bio,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", user.id);
+
+            if (error) throw error;
+
             setStatus("Saved Successfully! ✅");
             setIsEditing(false);
             setTimeout(() => setStatus(""), 3000);
@@ -44,15 +52,14 @@ function Settings() {
         }
     };
 
-    if (!currentUser) {
+    if (!user) {
         return (
             <div style={styles.container}>
                 <div style={styles.loginCard}>
                     <h1>Sign In to Curio</h1>
                     <p style={{ color: "#aaa", marginBottom: "20px" }}>Save your notes, history, and preferences to the cloud.</p>
-                    <button onClick={handleLogin} style={styles.loginBtn}>
-                        <img src="https://www.google.com/favicon.ico" width="20" style={{ marginRight: "10px" }} />
-                        Continue with Google
+                    <button onClick={() => navigate("/auth")} style={styles.loginBtn}>
+                        Sign In / Sign Up
                     </button>
                 </div>
             </div>
@@ -61,14 +68,26 @@ function Settings() {
 
     return (
         <div style={styles.container}>
-            <h1 style={styles.title}>Account Settings</h1>
+            <div className="flex items-center gap-4 mb-8">
+              <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                <ArrowLeft size={24} />
+              </button>
+              <h1 style={styles.title}>Account Settings</h1>
+            </div>
 
             <div style={styles.profileCard}>
                 <div style={styles.header}>
-                    <img src={currentUser.photoURL} style={styles.avatar} alt="Profile" />
+                    <img 
+                      src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${name || user.email}`} 
+                      style={styles.avatar} 
+                      alt="Profile" 
+                    />
                     <div>
                         <h2 style={{ margin: 0 }}>{name || "User"}</h2>
-                        <p style={{ color: "#aaa", margin: 0 }}>{currentUser.email}</p>
+                        <p style={{ color: "#aaa", margin: 0 }}>{user.email}</p>
+                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded uppercase font-bold tracking-widest mt-2 inline-block">
+                          {profile?.role || 'User'}
+                        </span>
                     </div>
                 </div>
 
@@ -80,6 +99,7 @@ function Settings() {
                         disabled={!isEditing}
                         onChange={(e) => setName(e.target.value)}
                         style={styles.input}
+                        placeholder="Enter your name"
                     />
 
                     <label style={styles.label}>Bio</label>
@@ -88,6 +108,7 @@ function Settings() {
                         disabled={!isEditing}
                         onChange={(e) => setBio(e.target.value)}
                         style={{ ...styles.input, height: "100px", resize: "none" }}
+                        placeholder="Tell us about yourself..."
                     />
 
                     <div style={styles.actions}>
@@ -116,14 +137,14 @@ const styles = {
     loginCard: { background: "#1a1a1a", padding: "40px", borderRadius: "20px", textAlign: "center", border: "1px solid #333", marginTop: "50px" },
     loginBtn: { background: "white", color: "black", border: "none", padding: "12px 24px", borderRadius: "30px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" },
 
-    title: { marginBottom: "30px" },
+    title: { margin: 0 },
     profileCard: { background: "#1a1a1a", padding: "30px", borderRadius: "20px", border: "1px solid #333" },
     header: { display: "flex", alignItems: "center", gap: "20px", marginBottom: "30px", paddingBottom: "20px", borderBottom: "1px solid #333" },
-    avatar: { width: "80px", height: "80px", borderRadius: "50%", border: "2px solid #4caf50" },
+    avatar: { width: "80px", height: "80px", borderRadius: "50%", border: "2px solid #4caf50", objectFit: "cover" },
 
     form: { display: "flex", flexDirection: "column", gap: "15px" },
     label: { fontSize: "14px", color: "#aaa", fontWeight: "bold" },
-    input: { background: "#111", border: "1px solid #333", padding: "12px", borderRadius: "8px", color: "white", fontSize: "16px" },
+    input: { background: "#111", border: "1px solid #333", padding: "12px", borderRadius: "8px", color: "white", fontSize: "16px", outline: "none" },
 
     actions: { display: "flex", gap: "15px", marginTop: "20px" },
     editBtn: { background: "#333", color: "white", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" },
@@ -131,4 +152,4 @@ const styles = {
     logoutBtn: { background: "#ff4444", color: "white", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto" }
 };
 
-export default Settings;
+export default ProfileSettings;
