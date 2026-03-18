@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import GoogleTranslate from "./GoogleTranslate";
 import GlobalAIChat from "./GlobalAIChat";
+import ThemeToggle from "./ThemeToggle";
 
 function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
   const [input, setInput] = useState("");
@@ -112,6 +113,8 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
         {showAIChat && <GlobalAIChat onClose={() => setShowAIChat(false)} />}
 
         <GoogleTranslate />
+
+        <ThemeToggle />
 
         <Settings
           size={22}
