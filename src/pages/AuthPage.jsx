@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, UserCircle, LogIn } from "lucide-react";
+import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, LogIn } from "lucide-react";
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { user, signIn, signInAnonymously, refreshProfile } = useAuth();
+  const { user, signIn, refreshProfile, signUp } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function AuthPage() {
     username: "",
   });
 
-  // Redirect if fully logged in (not anonymous)
+  // Redirect if fully logged in
   useEffect(() => {
     if (user && !user.is_anonymous) navigate("/");
   }, [user, navigate]);
@@ -34,14 +34,11 @@ export default function AuthPage() {
         const { error: signInError } = await signIn(formData.email, formData.password);
         if (signInError) throw signInError;
       } else {
-        // 🚀 UPGRADE LOGIC: Link email/password to the current anonymous account
-        const { error: upgradeError } = await supabase.auth.updateUser({
-          email: formData.email,
-          password: formData.password,
-          data: { username: formData.username }
+        const { error: signUpError } = await signUp(formData.email, formData.password, {
+          data: { full_name: formData.username }
         });
-        if (upgradeError) throw upgradeError;
-        alert("Verification email sent! Your data is now linked to your new account. 🚀");
+        if (signUpError) throw signUpError;
+        alert("Verification email sent! Check your inbox to activate your account. 🚀");
       }
       await refreshProfile();
       navigate("/");
@@ -58,26 +55,6 @@ export default function AuthPage() {
       if (error) throw error;
     } catch (err) {
       setError(err.message);
-    }
-  };
-
-  const handleGuestEntry = async () => {
-    setLoading(true);
-    try {
-      const { data, error: anonError } = await signInAnonymously();
-      if (anonError || !data?.user) {
-        // Fallback to local guest mode if Supabase Anonymous is disabled
-        console.warn("Supabase Anonymous Auth disabled, falling back to LocalStorage Guest Mode");
-        localStorage.setItem("local_guest_mode", "true");
-      } else {
-        localStorage.removeItem("local_guest_mode");
-      }
-      navigate("/");
-    } catch (err) {
-      localStorage.setItem("local_guest_mode", "true");
-      navigate("/");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -111,10 +88,10 @@ export default function AuthPage() {
             {isLogin ? <LogIn size={32} className="text-white" /> : <Sparkles size={32} className="text-white" />}
           </motion.div>
           <h1 className="text-3xl font-black text-white tracking-tighter">
-            {isLogin ? "Welcome Back" : "Upgrade Account"}
+            {isLogin ? "Welcome Back" : "Get Started"}
           </h1>
           <p className="text-zinc-500 mt-2">
-            {isLogin ? "Sign in to sync your FocusTube library." : "Keep all your guest data and sync across devices."}
+            {isLogin ? "Sign in to access your FocusTube library." : "Create your free FocusTube account to start learning."}
           </p>
         </div>
 
@@ -134,7 +111,7 @@ export default function AuthPage() {
                   <input
                     type="text"
                     required
-                    placeholder="Preferred Username"
+                    placeholder="Full Name"
                     className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all text-sm"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -196,9 +173,9 @@ export default function AuthPage() {
               <Chrome size={18} />
               <span className="text-xs font-bold text-white">Google</span>
             </button>
-            <button onClick={handleGuestEntry} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-zinc-400">
-              <UserCircle size={18} />
-              <span className="text-xs font-bold">Stay Guest</span>
+            <button onClick={() => handleOAuth('github')} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95">
+              <Github size={18} />
+              <span className="text-xs font-bold text-white">GitHub</span>
             </button>
           </div>
         </div>

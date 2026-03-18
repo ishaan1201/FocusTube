@@ -121,25 +121,13 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
         />
 
         <div onClick={handleProfileClick} style={{ cursor: "pointer" }}>
-          {user ? (
-            user.is_anonymous ? (
-              <button style={{ ...styles.loginBtn, color: "#9c27b0", borderColor: "rgba(156, 39, 176, 0.3)" }}>
-                <UserCircle size={18} />
-                <span>Guest Mode</span>
-              </button>
-            ) : (
-              <img
-                src={profile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || user.email}`}
-                alt="Profile"
-                style={styles.avatar}
-                title={`Settings: ${profile?.full_name || user.email}`}
-              />
-            )
-          ) : localStorage.getItem("local_guest_mode") === "true" ? (
-             <button style={{ ...styles.loginBtn, color: "#9c27b0", borderColor: "rgba(156, 39, 176, 0.3)" }}>
-                <UserCircle size={18} />
-                <span>Guest Mode</span>
-              </button>
+          {user && !user.is_anonymous ? (
+            <img
+              src={profile?.avatar_url || user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || user.email}`}
+              alt="Profile"
+              style={styles.avatar}
+              title={`Settings: ${profile?.full_name || user.email}`}
+            />
           ) : (
             <button style={styles.loginBtn}>
               <User size={18} />

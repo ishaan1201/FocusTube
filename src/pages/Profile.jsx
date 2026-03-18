@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../services/supabase";
+import { motion } from "framer-motion";
 import { 
   User, Camera, Mail, Save, Loader2, ArrowLeft, 
   Shield, Twitter, Github, Globe, Image as ImageIcon,
-  LogOut, Cloud, Smartphone, Lock, AlertTriangle, Zap,
-  Chrome
+  LogOut, Zap
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,7 +13,6 @@ export default function Profile() {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // --- REGULAR PROFILE STATE ---
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [twitter, setTwitter] = useState("");
@@ -24,16 +23,10 @@ export default function Profile() {
   const [banner, setBanner] = useState(null);
   const [bannerPreview, setBannerPreview] = useState("");
   
-  // --- UPGRADE GUEST STATE ---
-  const [upgradeEmail, setUpgradeEmail] = useState("");
-  const [upgradePassword, setUpgradePassword] = useState("");
-  const [upgradeName, setUpgradeName] = useState("");
-
   const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
-  // Cooldown timer
+  // Cooldown timer logic
   useEffect(() => {
     if (cooldown > 0) {
       const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
@@ -42,7 +35,7 @@ export default function Profile() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (profile && !user?.is_anonymous) {
+    if (profile) {
       setName(profile.full_name || "");
       setBio(profile.bio || "");
       setPreview(profile.avatar_url || "");
@@ -51,71 +44,8 @@ export default function Profile() {
       setGithub(profile.github_url || "");
       setWebsite(profile.website_url || "");
     }
-  }, [profile, user]);
+  }, [profile]);
 
-  // --- UPGRADE GUEST HANDLER ---
-  const handleUpgradeAccount = async (e) => {
-    e.preventDefault();
-    if (cooldown > 0) return;
-    
-    setLoading(true);
-    setAuthError("");
-
-    try {
-      // 🚀 Documentation-Aligned Flow:
-      // 1. Link email identity first
-      const { data, error: upgradeError } = await supabase.auth.updateUser({
-        email: upgradeEmail,
-        password: upgradePassword, // Pass both to attempt full conversion
-        data: { full_name: upgradeName }
-      });
-
-      if (upgradeError) {
-        if (upgradeError.status === 429) {
-          setCooldown(60);
-          throw new Error("Email rate limit exceeded. Please wait 60s.");
-        }
-        // If email already exists, we should suggest signing in
-        if (upgradeError.message.includes("already registered")) {
-          throw new Error("This email is already linked to an account. Please sign in instead.");
-        }
-        throw upgradeError;
-      }
-
-      // 2. Update profiles table
-      await supabase
-        .from("profiles")
-        .update({ 
-          full_name: upgradeName, 
-          role: 'user',
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", user.id);
-
-      alert("Verification email sent! Click the link to finalize your cloud account. ☁️");
-      await refreshProfile();
-      navigate("/");
-    } catch (error) {
-      console.error("Upgrade Error:", error);
-      setAuthError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLinkOAuth = async (provider) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.linkIdentity({ provider });
-      if (error) throw error;
-    } catch (err) {
-      setAuthError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- REGULAR PROFILE HANDLERS ---
   const uploadFile = async (file, bucket) => {
     if (!file) return null;
     const fileExt = file.name.split(".").pop();
@@ -135,7 +65,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
-    if (loading) return;
+    if (loading || cooldown > 0) return;
     setLoading(true);
     try {
       let avatar_url = preview;
@@ -167,6 +97,7 @@ export default function Profile() {
 
       if (error) {
         if (error.status === 429) {
+          setCooldown(60);
           throw new Error("You're saving too fast! Please wait a moment.");
         }
         throw error;
@@ -189,149 +120,16 @@ export default function Profile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white">
-        <div className="text-center">
-           <Loader2 className="animate-spin mx-auto mb-4" />
-           <p>Authenticating...</p>
+      <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white text-center">
+        <div>
+          <User size={48} className="mx-auto mb-4 text-zinc-700" />
+          <h2 className="text-xl font-bold mb-2">Not Authenticated</h2>
+          <button onClick={() => navigate("/auth")} className="px-6 py-2 bg-white text-black rounded-lg font-bold">Go to Sign In</button>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // 🛡️ GUEST MODE UI (Upgrade Screen)
-  // ==========================================
-  if (user.is_anonymous) {
-    return (
-      <div className="min-h-screen bg-black text-white pb-20 relative overflow-x-hidden pt-10 px-4">
-        {/* Background Decorative Elements */}
-        <div className="fixed inset-0 -z-10">
-          <div className="absolute top-[10%] left-[20%] w-[30%] h-[30%] bg-orange-600/[0.05] blur-[120px] rounded-full" />
-          <div className="absolute bottom-[10%] right-[20%] w-[30%] h-[30%] bg-blue-600/[0.05] blur-[120px] rounded-full" />
-        </div>
-
-        <div className="max-w-5xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors font-bold text-xs uppercase tracking-widest">
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button onClick={handleLogout} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-full border border-red-500/20 transition-all font-bold text-[10px] uppercase tracking-widest">
-              <LogOut size={14} /> Clear Session
-            </button>
-          </div>
-
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-black mb-4">Claim Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">Identity</span></h1>
-            <p className="text-zinc-400 max-w-xl mx-auto text-lg">You are currently browsing in Guest Mode. Upgrade to a free account to secure your notes, insights, and saved videos forever.</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            
-            {/* PROS & CONS PANEL */}
-            <div className="space-y-6">
-              <div className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-8 shadow-2xl">
-                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-red-400 mb-6 flex items-center gap-2">
-                  <AlertTriangle size={18} /> Current Status: Guest Mode
-                </h3>
-                <ul className="space-y-4 text-zinc-400">
-                  <li className="flex gap-3 items-start"><Smartphone size={20} className="shrink-0 text-zinc-500" /> <span>Data is locked to this specific device and browser.</span></li>
-                  <li className="flex gap-3 items-start"><Lock size={20} className="shrink-0 text-zinc-500" /> <span>If you clear your browser cache, <strong>all notes and saved videos will be permanently deleted.</strong></span></li>
-                </ul>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-8 shadow-2xl">
-                <h3 className="text-sm font-black uppercase tracking-[0.2em] text-purple-400 mb-6 flex items-center gap-2">
-                  <Zap size={18} /> Upgraded Account Benefits
-                </h3>
-                <ul className="space-y-4 text-zinc-300">
-                  <li className="flex gap-3 items-start"><Cloud size={20} className="shrink-0 text-purple-400" /> <span><strong>Cloud Sync:</strong> Access your Vault and History from your phone, laptop, or any device.</span></li>
-                  <li className="flex gap-3 items-start"><Shield size={20} className="shrink-0 text-purple-400" /> <span><strong>Secure Backup:</strong> Never lose a study note or AI insight again.</span></li>
-                  <li className="flex gap-3 items-start"><User size={20} className="shrink-0 text-purple-400" /> <span><strong>Personalized AI:</strong> FocusTube learns your study habits for better recommendations.</span></li>
-                </ul>
-              </div>
-            </div>
-
-            {/* UPGRADE FORM PANEL */}
-            <div className="bg-zinc-900/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Create Account</h2>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleLinkOAuth('google')}
-                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                    title="Link Google Account"
-                  >
-                    <Chrome size={16} />
-                  </button>
-                  <button 
-                    onClick={() => handleLinkOAuth('github')}
-                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors"
-                    title="Link GitHub Account"
-                  >
-                    <Github size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {authError && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
-                  <AlertTriangle size={16} />
-                  {authError}
-                </div>
-              )}
-              <form onSubmit={handleUpgradeAccount} className="space-y-5">
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-4 mb-2 block">Username</label>
-                  <input
-                    required
-                    value={upgradeName}
-                    onChange={(e) => setUpgradeName(e.target.value)}
-                    placeholder="e.g., Ishaan"
-                    className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-4 mb-2 block">Email Address</label>
-                  <input
-                    required
-                    type="email"
-                    value={upgradeEmail}
-                    onChange={(e) => setUpgradeEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-4 mb-2 block">Secure Password</label>
-                  <input
-                    required
-                    type="password"
-                    minLength={6}
-                    value={upgradePassword}
-                    onChange={(e) => setUpgradePassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white focus:outline-none focus:border-purple-500/50 transition-all"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading || cooldown > 0}
-                  className="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/25 flex justify-center disabled:opacity-50 disabled:grayscale"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={16} /> : cooldown > 0 ? `Wait ${cooldown}s` : "Upgrade Account Now"}
-                </button>
-              </form>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // 👤 REGULAR REGISTERED USER UI 
-  // ==========================================
   return (
     <div className="min-h-screen bg-black text-white pb-20 relative overflow-x-hidden">
       {/* Background Decorative Elements */}
@@ -358,7 +156,6 @@ export default function Profile() {
 
         {/* IDENTITY LAYER CARD */}
         <div className="bg-zinc-900/40 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/50">
-          
           {/* BANNER SECTION */}
           <div className="relative group h-48 md:h-64 bg-zinc-800">
             <img src={bannerPreview || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="Banner" />
@@ -385,7 +182,6 @@ export default function Profile() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-              {/* LEFT COL: INFO */}
               <div className="md:col-span-7 space-y-8">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-4 mb-2 block">Username</label>
@@ -404,7 +200,6 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* RIGHT COL: SOCIALS */}
               <div className="md:col-span-5 space-y-8">
                 <div className="bg-black/20 p-8 rounded-[2rem] border border-white/5 h-fit">
                   <h3 className="text-xs font-black uppercase tracking-[0.3em] text-zinc-400 mb-6 flex items-center gap-2">Connect Socials</h3>
@@ -424,8 +219,8 @@ export default function Profile() {
                   </div>
                 </div>
 
-                <button onClick={handleSave} disabled={loading} className="w-full group relative overflow-hidden bg-white text-black py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-2xl shadow-white/10">
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                <button onClick={handleSave} disabled={loading || cooldown > 0} className="w-full group relative overflow-hidden bg-white text-black py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-2xl shadow-white/10">
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : cooldown > 0 ? `Wait ${cooldown}s` : (
                     <>
                       <Save size={20} />
                       <span>Sync Identity</span>
