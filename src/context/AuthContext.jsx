@@ -78,9 +78,13 @@ export const AuthProvider = ({ children }) => {
     return supabase.auth.signOut();
   };
 
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signUp, signIn, signOut, fetchProfile }}
+      value={{ user, profile, loading, signUp, signIn, signOut, fetchProfile, refreshProfile }}
     >
       {!loading && children}
     </AuthContext.Provider>

@@ -11,6 +11,7 @@ import Vault from "./pages/Vault";
 import FeedbackPage from "./pages/FeedbackPage";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
+import Profile from "./pages/Profile";
 import SavedPage from "./pages/SavedPage";
 import ShortsPage from "./pages/ShortsPage";
 import Classroom from "./pages/Classroom";
@@ -222,7 +223,7 @@ function AppShell({
               ambienceTracks={AMBIENCE_TRACKS}
             />} />
             <Route path="/settings" element={<Settings theme={theme} setTheme={setTheme} />} />
-            <Route path="/profile" element={<ProfileSettings />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/insights" element={<AiInsights />} />
           </Routes>
         </main>
