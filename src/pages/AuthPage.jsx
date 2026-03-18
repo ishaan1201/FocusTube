@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, Github, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, LogIn } from "lucide-react";
+import { Mail, Lock, User, Apple, Chrome, ArrowRight, Loader2, ShieldCheck, Sparkles, LogIn } from "lucide-react";
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -173,9 +173,9 @@ export default function AuthPage() {
               <Chrome size={18} />
               <span className="text-xs font-bold text-white">Google</span>
             </button>
-            <button onClick={() => handleOAuth('github')} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95">
-              <Github size={18} />
-              <span className="text-xs font-bold text-white">GitHub</span>
+            <button onClick={() => handleOAuth('apple')} className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95">
+              <Apple size={18} />
+              <span className="text-xs font-bold text-white">Apple</span>
             </button>
           </div>
         </div>
