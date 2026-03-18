@@ -7,7 +7,7 @@ import { summarizeFeedback } from "../services/aiSummary";
 import { analyzeSentiment } from "../services/sentiment";
 import { getAIResponse } from "../services/gemini";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, Send, LogOut, CheckCircle, Zap, ShieldAlert, AlertCircle, Info } from "lucide-react";
+import { Search, Sparkles, Send, LogOut, CheckCircle, Zap, ShieldAlert, AlertCircle, Info, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Admin() {
@@ -29,12 +29,21 @@ export default function Admin() {
 
   // ROLE-BASED PROTECTION
   useEffect(() => {
-    if (!authLoading) {
-      if (!profile || profile.role !== "admin") {
+    // Wait for auth to resolve
+    if (authLoading) return;
+
+    // If no profile or role is not admin, redirect
+    if (!profile || profile.role !== "admin") {
+      console.log("Access Denied: Not an admin", profile);
+      // Optional: Add a check if it's a specific super-admin email for debugging
+      // if (profile?.email === 'your-email@example.com') return;
+      
+      const timer = setTimeout(() => {
         navigate("/");
-      } else {
-        fetchFeedback();
-      }
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      fetchFeedback();
     }
   }, [profile, authLoading, navigate]);
 
@@ -140,10 +149,35 @@ export default function Admin() {
     return <Info className="text-blue-500" size={16} />;
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black">
         <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+        <p className="text-zinc-500 mt-4 font-bold uppercase tracking-widest text-xs animate-pulse">Verifying Credentials...</p>
+      </div>
+    );
+  }
+
+  if (!profile || profile.role !== "admin") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
+        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+          <ShieldAlert size={40} className="text-red-500" />
+        </div>
+        <h2 className="text-2xl font-black mb-2">Access Denied</h2>
+        <p className="text-zinc-500 mb-8 text-center max-w-xs">You don't have administrative privileges to access the Command Center.</p>
+        <button onClick={() => navigate("/")} className="px-8 py-3 bg-white text-black rounded-xl font-bold uppercase tracking-widest text-xs transition-all hover:scale-105 active:scale-95">
+          Return Home
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-purple-500 rounded-full animate-spin" />
+        <p className="text-zinc-500 mt-4 font-bold uppercase tracking-widest text-xs animate-pulse">Initializing Dashboard...</p>
       </div>
     );
   }

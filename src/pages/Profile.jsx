@@ -10,7 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
