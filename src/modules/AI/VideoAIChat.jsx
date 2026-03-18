@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Trash2, Paperclip, X, Download, Mic, MicOff } from "lucide-react";
+import { Send, Trash2, Paperclip, X, Download, Mic, MicOff, Loader2 } from "lucide-react";
 import { getAIResponse } from "../../services/gemini";
+import { useAuth } from "../../context/AuthContext";
+import { saveDocument, fetchDocuments } from "../../services/userData";
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
 export default function VideoAIChat({ id, video, noteText, setNoteText }) {
-  const [chatMessages, setChatMessages] = useState(() => {
-    const saved = localStorage.getItem(`chat_${id}`);
-    return saved ? JSON.parse(saved) : [{ role: "ai", text: `Ready to analyze "${video?.snippet?.title || 'this video'}". What's confusing you?` }];
-  });
+  const { user } = useAuth();
+  const [chatMessages, setChatMessages] = useState([]);
+  const [isLoadingChat, setIsLoadingChat] = useState(true);
 
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -22,17 +23,43 @@ export default function VideoAIChat({ id, video, noteText, setNoteText }) {
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  // 1. Fetch Chat History on Load
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      setIsLoadingChat(true);
+      const allInsights = await fetchDocuments(user, 'ai_insight');
+      const existingChat = allInsights.find(doc => doc.videoId === id);
+      
+      if (existingChat && existingChat.content) {
+        try {
+          setChatMessages(JSON.parse(existingChat.content));
+        } catch(e) {
+          setChatMessages([{ role: "ai", text: "Chat history corrupted. Starting fresh!" }]);
+        }
+      } else {
+        setChatMessages([{ role: "ai", text: `Ready to analyze "${video?.snippet?.title || 'this video'}". What's confusing you?` }]);
+      }
+      setIsLoadingChat(false);
+    };
+    loadChatHistory();
+  }, [id, user, video]);
+
+  // 2. Auto-Save & Auto-Scroll when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    try {
-      localStorage.setItem(`chat_${id}`, JSON.stringify(chatMessages));
-    } catch (e) { console.warn("Storage quota exceeded."); }
-  }, [chatMessages, id]);
+    
+    if (!isLoadingChat && chatMessages.length > 0) {
+      // Fire and forget: saves to Supabase Bucket or LocalStorage depending on user status
+      saveDocument(user, JSON.stringify(chatMessages), 'ai_insight', id).catch(console.error);
+    }
+  }, [chatMessages, id, user, isLoadingChat]);
 
-  const clearChat = () => {
+  const clearChat = async () => {
     if (window.confirm("Are you sure you want to clear your conversation?")) {
-      setChatMessages([{ role: "ai", text: "Chat cleared. How can I help you now?" }]);
-      localStorage.removeItem(`chat_${id}`);
+      const freshStart = [{ role: "ai", text: "Chat cleared. How can I help you now?" }];
+      setChatMessages(freshStart);
+      // Overwrite the DB/Storage with the cleared state
+      await saveDocument(user, JSON.stringify(freshStart), 'ai_insight', id);
     }
   };
 
@@ -104,6 +131,12 @@ export default function VideoAIChat({ id, video, noteText, setNoteText }) {
       </div>
       
       <div style={styles.chatFeed}>
+        {isLoadingChat && (
+          <div className="flex items-center justify-center py-4 text-zinc-500 gap-2">
+            <Loader2 size={14} className="animate-spin" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Loading History...</span>
+          </div>
+        )}
         {chatMessages.map((msg, idx) => (
           <div key={idx} style={{ ...styles.chatBubble, ...(msg.role === "user" ? styles.userBubble : styles.aiBubble) }}>
             {msg.role === "ai" && <div style={{ color: "#2196f3", fontSize: "11px", fontWeight: "900", marginBottom: "6px" }}>FOCUS AI</div>}
