@@ -27,20 +27,22 @@ export default function Profile() {
     if (!avatar) return preview;
 
     const fileExt = avatar.name.split(".").pop();
-    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    // Use a path that matches our RLS policy: folder name should be user.id
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(fileName, avatar, { upsert: true });
+      .upload(filePath, avatar, { upsert: true });
 
     if (uploadError) {
-      console.error(uploadError);
+      console.error("Upload error:", uploadError);
+      alert(`Upload failed: ${uploadError.message}`);
       return preview;
     }
 
     const { data } = supabase.storage
       .from("avatars")
-      .getPublicUrl(fileName);
+      .getPublicUrl(filePath);
 
     return data.publicUrl;
   };
