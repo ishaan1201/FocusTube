@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   BookOpen, Code, Cpu, Globe, Atom, TrendingUp,
   Target, History, Shield, Archive, PenTool, Newspaper,
-  Home as HomeIcon, Video, Radio, Settings
+  Home as HomeIcon, Video, Radio, Settings, HelpCircle
 } from "lucide-react";
 
 function Sidebar({ open, onClose, focusMode, activeCategory }) {
@@ -73,6 +73,11 @@ function Sidebar({ open, onClose, focusMode, activeCategory }) {
           <NavSection title="Focus">
             <NavItem to="/focus" icon={<Target size={18} />} label="Focus Mode" onClick={onClose} />
             <NavItem to="/history" icon={<History size={18} />} label="History" onClick={onClose} />
+          </NavSection>
+
+          {/* Support Section */}
+          <NavSection title="Support">
+            <NavItem to="/feedback" icon={<HelpCircle size={18} />} label="FAQ" onClick={onClose} />
           </NavSection>
 
         </div>

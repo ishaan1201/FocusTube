@@ -15,12 +15,13 @@
     "@capacitor/core": "^8.0.2",
     "@google/genai": "^1.40.0",
     "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.99.2",
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
     "docx": "^9.5.1",
     "file-saver": "^2.0.5",
     "firebase": "^12.8.0",
-    "framer-motion": "^12.36.0",
+    "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.1.0",
     "katex": "^0.16.38",
@@ -33,9 +34,11 @@
     "react-quill-new": "^3.8.3",
     "react-router-dom": "^7.13.0",
     "react-youtube": "^10.1.0",
+    "recharts": "^3.8.0",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
