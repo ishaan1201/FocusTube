@@ -29,6 +29,16 @@ export default function Profile() {
   const [upgradeName, setUpgradeName] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
 
   useEffect(() => {
     if (profile && !user?.is_anonymous) {
@@ -45,7 +55,11 @@ export default function Profile() {
   // --- UPGRADE GUEST HANDLER ---
   const handleUpgradeAccount = async (e) => {
     e.preventDefault();
+    if (cooldown > 0) return;
+    
     setLoading(true);
+    setAuthError("");
+
     try {
       // 1. Attach email and password to the anonymous UUID
       const { data, error: upgradeError } = await supabase.auth.updateUser({
@@ -55,7 +69,8 @@ export default function Profile() {
 
       if (upgradeError) {
         if (upgradeError.status === 429) {
-          throw new Error("Rate limit exceeded. Please wait a few minutes before trying to upgrade again.");
+          setCooldown(60); // 1 minute lockout
+          throw new Error("Supabase email rate limit exceeded. Please wait 60 seconds before trying again.");
         }
         throw upgradeError;
       }
@@ -218,6 +233,12 @@ export default function Profile() {
             {/* UPGRADE FORM PANEL */}
             <div className="bg-zinc-900/80 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 shadow-2xl">
               <h2 className="text-2xl font-bold mb-6">Create Account</h2>
+              {authError && (
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs font-bold flex items-center gap-3">
+                  <AlertTriangle size={16} />
+                  {authError}
+                </div>
+              )}
               <form onSubmit={handleUpgradeAccount} className="space-y-5">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-4 mb-2 block">Username</label>
@@ -254,10 +275,10 @@ export default function Profile() {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/25 flex justify-center"
+                  disabled={loading || cooldown > 0}
+                  className="w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/25 flex justify-center disabled:opacity-50 disabled:grayscale"
                 >
-                  {loading ? <Loader2 className="animate-spin" size={16} /> : "Upgrade Account Now"}
+                  {loading ? <Loader2 className="animate-spin" size={16} /> : cooldown > 0 ? `Wait ${cooldown}s` : "Upgrade Account Now"}
                 </button>
               </form>
             </div>
