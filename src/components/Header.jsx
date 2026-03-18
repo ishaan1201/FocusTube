@@ -128,6 +128,11 @@ function Header({ toggleSidebar, onSearch, timer, bgVideoId, setBgVideoId }) {
               style={styles.avatar}
               title={`Settings: ${profile?.full_name || user.email}`}
             />
+          ) : localStorage.getItem("guest_mode") === "true" ? (
+            <button style={{ ...styles.loginBtn, color: "#9c27b0", borderColor: "rgba(156, 39, 176, 0.3)" }}>
+              <UserCircle size={18} />
+              <span>Guest Mode</span>
+            </button>
           ) : (
             <button style={styles.loginBtn}>
               <User size={18} />

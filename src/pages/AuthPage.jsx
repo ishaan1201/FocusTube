@@ -181,7 +181,10 @@ export default function AuthPage() {
               <span className="text-xs font-bold text-white">Google</span>
             </button>
             <button 
-              onClick={() => navigate("/")}
+              onClick={() => {
+                localStorage.setItem("guest_mode", "true");
+                navigate("/");
+              }}
               className="flex items-center justify-center gap-2 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95 text-purple-400 border-purple-500/20"
             >
               <UserCircle size={18} />

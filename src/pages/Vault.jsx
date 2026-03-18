@@ -220,7 +220,7 @@ function Vault() {
                   </p>
                 </div>
               ))}
-              {notes.length === 0 && <p className="text-xs text-zinc-600 italic">No notes captured yet.</p>}
+              {notes.length === 0 && <p className="text-xs text-zinc-600 italic"></p>}
             </div>
           </div>
 
@@ -229,7 +229,7 @@ function Vault() {
              <NavIcon to="/history" icon={<History />} label="History" />
              <NavIcon to="/liked" icon={<Heart />} label="Liked" />
              <NavIcon to="/saved" icon={<Bookmark />} label="Saved" />
-             <NavIcon to="/insights" icon={<Sparkles />} label="AI Insights" />
+             <NavIcon to="/insights" icon={<TrendingUp />} label="AI Insights" />
           </div>
         </div>
       </div>
