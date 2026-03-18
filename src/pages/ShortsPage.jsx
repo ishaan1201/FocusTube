@@ -7,6 +7,25 @@ function ShortsPage() {
   const [pageToken, setPageToken] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const isUnder60Sec = (isoDuration) => {
+    if (!isoDuration) return false;
+    const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (!match) return false;
+    const hours = parseInt((match[1] || "0").replace("H", "")) || 0;
+    const minutes = parseInt((match[2] || "0").replace("M", "")) || 0;
+    const seconds = parseInt((match[3] || "0").replace("S", "")) || 0;
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    return totalSeconds < 60;
+  };
+
+  const processShorts = (items) => {
+    // Only allow videos under 60 seconds
+    return items.filter(video => {
+      const duration = video.contentDetails?.duration;
+      return isUnder60Sec(duration);
+    });
+  };
+
   // 1️⃣ Initial Load
   useEffect(() => {
     loadMore();
@@ -25,13 +44,13 @@ function ShortsPage() {
 
   const loadMore = async () => {
     setLoading(true);
-    const data = await fetchShorts(pageToken); // Pass the token to get the next page
+    const data = await fetchShorts(pageToken);
 
     setVideos((prev) => {
-      // Prevent duplicates just in case
-      const newIds = new Set(data.items.map(v => v.id.videoId || v.id));
+      const newItems = processShorts(data.items);
+      const newIds = new Set(newItems.map(v => v.id.videoId || v.id));
       const filteredPrev = prev.filter(v => !newIds.has(v.id.videoId || v.id));
-      return [...filteredPrev, ...data.items];
+      return [...filteredPrev, ...newItems];
     });
 
     setPageToken(data.nextPageToken || "");
@@ -50,6 +69,7 @@ function ShortsPage() {
 
       {loading && <p style={styles.loading}>Loading more shorts...</p>}
       {!loading && !pageToken && videos.length > 0 && <p style={styles.loading}>You've reached the end!</p>}
+      {!loading && videos.length === 0 && <p style={styles.loading}>No shorts found in this batch. Try scrolling...</p>}
     </div>
   );
 }
