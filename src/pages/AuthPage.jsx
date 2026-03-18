@@ -149,9 +149,37 @@ export default function AuthPage() {
       </div>
 
       {/* ========================================== */}
-      {/* 👉 RIGHT PANEL: PURE NEGATIVE SPACE */}
+      {/* 👉 RIGHT PANEL: ABSTRACT GLASS SPHERE */}
       {/* ========================================== */}
-      <div className="hidden lg:block w-[50%] relative z-20 pointer-events-none" />
+      <div className="hidden lg:flex w-[50%] items-center justify-center relative z-20 pointer-events-none p-12">
+        {/* The main rotating glass orb container */}
+        <div className="relative w-full max-w-lg aspect-square flex items-center justify-center">
+          
+          {/* Main Frosted Glass Sphere */}
+          <motion.div
+            animate={{ rotate: 360, scale: [1, 1.02, 1] }}
+            transition={{ rotate: { duration: 40, repeat: Infinity, ease: "linear" }, scale: { duration: 8, repeat: Infinity, ease: "easeInOut" } }}
+            className="absolute inset-10 rounded-full bg-gradient-to-tr from-white/10 to-white/40 backdrop-blur-3xl border border-white/50 shadow-[0_8px_40px_rgba(0,0,0,0.05)] overflow-hidden"
+          >
+            {/* Inner dynamic highlights to make it look 3D and glassy */}
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/40 blur-2xl rounded-full" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-orange-100/20 blur-3xl rounded-full" />
+          </motion.div>
+
+          {/* Floating geometric accent rings around the sphere */}
+          <motion.div
+            animate={{ rotate: -360 }}
+            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-4 rounded-full border border-slate-200/40 border-dashed opacity-50"
+          />
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 rounded-full border border-orange-200/30 opacity-40"
+          />
+          
+        </div>
+      </div>
 
     </div>
   );
