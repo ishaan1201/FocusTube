@@ -48,12 +48,17 @@ export default function Profile() {
     setLoading(true);
     try {
       // 1. Attach email and password to the anonymous UUID
-      const { data, error } = await supabase.auth.updateUser({
+      const { data, error: upgradeError } = await supabase.auth.updateUser({
         email: upgradeEmail,
         password: upgradePassword,
       });
 
-      if (error) throw error;
+      if (upgradeError) {
+        if (upgradeError.status === 429) {
+          throw new Error("Rate limit exceeded. Please wait a few minutes before trying to upgrade again.");
+        }
+        throw upgradeError;
+      }
 
       // 2. Update the profile table with their new username
       const { error: profileError } = await supabase
@@ -63,9 +68,8 @@ export default function Profile() {
 
       if (profileError) throw profileError;
 
-      alert("Account upgraded! Welcome to the cloud. ☁️");
+      alert("Account upgraded! Check your email for a verification link. ☁️");
       await refreshProfile();
-      // Force reload to refresh session state globally
       window.location.reload(); 
     } catch (error) {
       console.error(error);
@@ -95,6 +99,7 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       let avatar_url = preview;
@@ -124,13 +129,18 @@ export default function Profile() {
         })
         .eq("id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.status === 429) {
+          throw new Error("You're saving too fast! Please wait a moment.");
+        }
+        throw error;
+      }
       
       await refreshProfile();
       alert("Identity updated! 🚀");
     } catch (error) {
       console.error(error);
-      alert("Failed to update profile.");
+      alert(error.message || "Failed to update profile.");
     } finally {
       setLoading(false);
     }
