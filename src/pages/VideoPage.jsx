@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, Minimize, FileText, Sparkles } from "lucide-react";
 import { fetchVideoDetails, fetchChannelDetails } from "../services/youtube";
-import { isInVault, getNoteForVideo } from "../utils/storage";
+import { useAuth } from "../context/AuthContext";
+import { toggleVideoInList, fetchVideoList } from "../services/userData";
+import { getNoteForVideo } from "../utils/storage";
 
 // MODULES
 import VideoPlayer from "../modules/Video/VideoPlayer";
@@ -14,6 +16,7 @@ export default function VideoPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const startTime = searchParams.get("t") || "0";
+  const { user } = useAuth();
 
   const [video, setVideo] = useState(null);
   const [channel, setChannel] = useState(null);
@@ -37,9 +40,13 @@ export default function VideoPage() {
     const init = async () => {
       const vData = await fetchVideoDetails(id);
       setVideo(vData);
-      setIsSaved(isInVault(id));
-      const liked = JSON.parse(localStorage.getItem("liked_videos") || "[]");
-      setIsLiked(!!liked.find(v => v.id === id));
+      
+      const savedList = await fetchVideoList(user, 'saved');
+      setIsSaved(savedList.some(v => (v.video_id || v.id) === id));
+      
+      const likedList = await fetchVideoList(user, 'liked');
+      setIsLiked(likedList.some(v => (v.video_id || v.id) === id));
+
       const existingNote = getNoteForVideo(id);
       if (existingNote) setNoteText(existingNote.text);
       if (vData?.snippet?.channelId) {
@@ -122,8 +129,17 @@ export default function VideoPage() {
             </div>
           ) : (
             <VideoMetadata 
-              video={video} channel={channel} isSaved={isSaved} toggleSave={() => setIsSaved(!isSaved)} 
-              isLiked={isLiked} toggleLike={() => setIsLiked(!isLiked)} 
+              video={video} channel={channel} 
+              isSaved={isSaved} 
+              toggleSave={async () => {
+                const added = await toggleVideoInList(user, video, 'saved');
+                setIsSaved(added);
+              }} 
+              isLiked={isLiked} 
+              toggleLike={async () => {
+                const added = await toggleVideoInList(user, video, 'liked');
+                setIsLiked(added);
+              }} 
               isFollowing={isFollowing} toggleFollow={() => setIsFollowing(!isFollowing)} 
               setFocusMode={setFocusMode} 
             />

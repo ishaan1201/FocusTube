@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { Clock, Download } from "lucide-react";
+import { Clock, Download, Cloud, Database } from "lucide-react";
 import { saveNoteMetadata } from "../../utils/storage";
 import { exportNotesToPDF } from "../../utils/pdf";
+import { useAuth } from "../../context/AuthContext";
+import { saveDocument } from "../../services/userData";
 
 function NotesPanel({ videoId, videoTitle }) {
+  const { user } = useAuth();
   const [noteContent, setNoteContent] = useState("");
   const [lastSaved, setLastSaved] = useState("");
   const [manualTime, setManualTime] = useState("");
@@ -16,11 +19,14 @@ function NotesPanel({ videoId, videoTitle }) {
   }, [videoId]);
 
   // ⚡ AUTO-SAVE LOGIC
-  const handleNoteChange = (e) => {
+  const handleNoteChange = async (e) => {
     const text = e.target.value;
     setNoteContent(text);
-    localStorage.setItem(`notes_doc_${videoId}`, text);
-    // Save metadata so Notes page can show title/date
+    
+    // Hybrid Save
+    await saveDocument(user, text, 'note', videoId);
+    
+    // Keep local metadata for the legacy list if needed, or we can refactor that later
     try { saveNoteMetadata(videoId, videoTitle); } catch (e) {}
     setLastSaved(new Date().toLocaleTimeString());
   };
@@ -56,7 +62,14 @@ function NotesPanel({ videoId, videoTitle }) {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h3 style={{ margin: 0, color: "#ff4444", fontSize: "16px" }}>📝 Notepad</h3>
+        <div className="flex items-center gap-2">
+          <h3 style={{ margin: 0, color: "#ff4444", fontSize: "16px" }}>📝 Notepad</h3>
+          {user ? (
+            <Cloud size={14} className="text-blue-500" title="Cloud Sync Active" />
+          ) : (
+            <Database size={14} className="text-zinc-600" title="Local Storage Only" />
+          )}
+        </div>
         <span style={{ fontSize: "11px", color: "#666" }}>{lastSaved ? `Saved ${lastSaved}` : "Auto-save ready"}</span>
       </div>
 

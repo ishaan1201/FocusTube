@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Save } from "lucide-react";
+import { Save, Cloud, Database } from "lucide-react";
 import { saveNote } from "../../utils/storage";
+import { useAuth } from "../../context/AuthContext";
+import { saveDocument } from "../../services/userData";
 
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -15,6 +17,7 @@ Quill.register('modules/imageResize', ImageResize.default || ImageResize);
 Quill.register('modules/magicUrl', MagicUrl.default || MagicUrl);
 
 export default function NotesPanel({ id, video, noteText, setNoteText }) {
+  const { user } = useAuth();
   const [noteStatus, setNoteStatus] = useState("");
 
   // 🧠 FIX 1: We use a Ref to track the text. 
@@ -24,13 +27,17 @@ export default function NotesPanel({ id, video, noteText, setNoteText }) {
     textRef.current = noteText;
   }, [noteText]);
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
+    // 1. Hybrid Save (New System)
+    await saveDocument(user, textRef.current, 'note', id);
+
+    // 2. Legacy Local Save (for reverse compatibility during transition)
     saveNote({ 
       id, 
       title: video.snippet.title, 
       thumbnail: video.snippet.thumbnails.high?.url, 
       channel: video.snippet.channelTitle 
-    }, textRef.current); // Uses the ref!
+    }, textRef.current); 
     
     setNoteStatus("Saved! ✅");
     setTimeout(() => setNoteStatus(""), 2000);
@@ -100,7 +107,18 @@ export default function NotesPanel({ id, video, noteText, setNoteText }) {
       />
 
       <div style={styles.notesFooter}>
-        <span style={{ color: "#4caf50", fontWeight: "bold", fontSize: "14px" }}>{noteStatus}</span>
+        <div className="flex items-center gap-4">
+          <span style={{ color: "#4caf50", fontWeight: "bold", fontSize: "14px" }}>{noteStatus}</span>
+          {user ? (
+            <div className="flex items-center gap-1.5 text-blue-500 text-[10px] font-bold uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-md">
+              <Cloud size={12} /> Cloud
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-bold uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
+              <Database size={12} /> Local
+            </div>
+          )}
+        </div>
         <button onClick={handleSaveNote} style={styles.saveBtn}>
           <Save size={16}/> Save Note
         </button>

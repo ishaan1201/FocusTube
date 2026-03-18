@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trash2, Bookmark, Play, Clock } from "lucide-react";
-import { getVault, toggleVault } from "../utils/storage";
+import { Trash2, Bookmark } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { fetchVideoList, toggleVideoInList } from "../services/userData";
 
 function SavedPage() {
+  const { user } = useAuth();
   const [savedVideos, setSavedVideos] = useState([]);
 
   useEffect(() => {
-    setSavedVideos(getVault());
-  }, []);
+    const loadData = async () => {
+      const data = await fetchVideoList(user, 'saved');
+      setSavedVideos(data);
+    };
+    loadData();
+  }, [user]);
 
-  const removeVideo = (e, video) => {
+  const removeVideo = async (e, video) => {
     e.preventDefault();
-    toggleVault(video); 
-    setSavedVideos(getVault());
+    await toggleVideoInList(user, video, 'saved');
+    const data = await fetchVideoList(user, 'saved');
+    setSavedVideos(data);
   };
 
   return (
@@ -29,9 +36,9 @@ function SavedPage() {
       ) : (
         <div style={styles.grid}>
           {savedVideos.map((video) => (
-            <Link to={`/video/${video.id}`} key={video.id} style={styles.card}>
+            <Link to={`/video/${video.video_id || video.id}`} key={video.video_id || video.id} style={styles.card}>
               <div style={styles.thumbWrapper}>
-                <img src={video.thumbnail} alt={video.title} style={styles.thumb} />
+                <img src={video.thumbnail_url || video.thumbnail} alt={video.title} style={styles.thumb} />
                 <button onClick={(e) => removeVideo(e, video)} style={styles.removeBtn}>
                   <Trash2 size={16} />
                 </button>

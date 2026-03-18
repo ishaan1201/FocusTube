@@ -1,7 +1,33 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Youtube } from "lucide-react"; 
+import { Youtube, Heart, Bookmark, Check } from "lucide-react"; 
+import { useAuth } from "../context/AuthContext";
+import { toggleVideoInList, fetchVideoList } from "../services/userData";
 
 function VideoCard({ video, isShort = false }) {
+  const { user } = useAuth();
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    const checkState = async () => {
+      const likedList = await fetchVideoList(user, 'liked');
+      const savedList = await fetchVideoList(user, 'saved');
+      const vId = video.id?.videoId || video.id;
+      setIsLiked(likedList.some(v => (v.video_id || v.id) === vId));
+      setIsSaved(savedList.some(v => (v.video_id || v.id) === vId));
+    };
+    checkState();
+  }, [user, video.id]);
+
+  const handleToggle = async (e, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const added = await toggleVideoInList(user, video, type);
+    if (type === 'liked') setIsLiked(added);
+    else setIsSaved(added);
+  };
+
   const videoId = video.id?.videoId || video.id;
   const { title, channelTitle, channelId, thumbnails, publishedAt } = video.snippet;
   
@@ -34,8 +60,28 @@ function VideoCard({ video, isShort = false }) {
           <div style={s.ytBadge}>
             <Youtube size={16} color="white" fill="#ff0000" />
           </div>
+
+          {/* Quick Actions Hover Overlay */}
+          <div className="action-overlay" style={s.actionOverlay}>
+            <button 
+              onClick={(e) => handleToggle(e, 'liked')}
+              style={{ ...s.actionBtn, color: isLiked ? "#ff4444" : "white" }}
+            >
+              <Heart size={18} fill={isLiked ? "#ff4444" : "none"} />
+            </button>
+            <button 
+              onClick={(e) => handleToggle(e, 'saved')}
+              style={{ ...s.actionBtn, color: isSaved ? "#4caf50" : "white" }}
+            >
+              {isSaved ? <Check size={18} /> : <Bookmark size={18} />}
+            </button>
+          </div>
         </div>
       </Link>
+
+      <style>{`
+        .thumb-wrapper:hover .action-overlay { opacity: 1 !important; }
+      `}</style>
 
       {/* DATA SECTION */}
       <div style={s.infoRow}>
@@ -77,6 +123,35 @@ const styles = (isShort) => ({
     borderRadius: "12px", 
     overflow: "hidden", 
     background: "#222" 
+  },
+  actionOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    background: "linear-gradient(to bottom, rgba(0,0,0,0.4), transparent, rgba(0,0,0,0.4))",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    padding: "8px",
+    gap: "8px",
+    opacity: 0,
+    transition: "opacity 0.2s ease",
+    zIndex: 10
+  },
+  actionBtn: {
+    background: "rgba(0,0,0,0.6)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "50%",
+    width: "36px",
+    height: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    backdropFilter: "blur(4px)",
+    transition: "all 0.2s ease"
   },
   img: { width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.2s" },
   durationBadge: { position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.85)", color: "white", padding: "4px 6px", borderRadius: "6px", fontSize: "12px", fontWeight: "bold" },
