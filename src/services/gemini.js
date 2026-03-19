@@ -1,11 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const SERP_API_KEY = import.meta.env.VITE_SERPAPI_KEY;
-
-if (!API_KEY) console.error("Gemini API key missing. Check your .env file.");
-
-const genAI = new GoogleGenerativeAI(API_KEY);
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL;
+const GATEWAY_KEY = import.meta.env.VITE_GATEWAY_KEY;
 
 export const getAIResponse = async (videoTitle, videoDescription, userQuery, currentNotes, chatHistory = [], attachment = null) => {
   
@@ -50,117 +44,125 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
     CURRENT USER REQUEST: ${userQuery}
   `;
 
-  const models = ["gemini-2.5-flash"];
-
-  for (const modelName of models) {
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const payload = [prompt];
-      
-      if (attachment && attachment.base64) {
-        // Correctly extract the Base64 data part (removing data URL prefix if present)
-        const parts = attachment.base64.split(",");
-        const base64Data = parts.length > 1 ? parts[1] : parts[0];
-        payload.push({ inlineData: { data: base64Data, mimeType: attachment.mimeType } });
-      }
-
-      const result = await model.generateContent(payload);
-      let aiText = result.response.text();
-
-      // 🛑 INTERCEPTORS: WEB & IMAGES
-      if (SERP_API_KEY) {
-        
-        // 🚀 SMART IMAGE INTERCEPTOR
-        const imageRegex = /\[\s*SEARCH_IMAGE\s*:\s*(.*?)\s*\]/gi;
-        const imageMatches = [...aiText.matchAll(imageRegex)];
-
-        for (const match of imageMatches) {
-          const fullTag = match[0]; 
-          const query = match[1] ? match[1].trim() : ""; 
-          
-          if (query) {
-            try {
-              const serpUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
-              const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(serpUrl)}`;
-
-              const response = await fetch(proxyUrl);
-              const data = await response.json();
-
-              if (data.images_results && data.images_results.length > 0) {
-                const realImageUrl = data.images_results[0].original; 
-                
-                // 🧠 Context check: Is this image going to the Chat or the Notes Editor?
-                const noteTagIndex = aiText.indexOf("[UPDATED_NOTE]");
-                const isForNotes = noteTagIndex !== -1 && aiText.indexOf(fullTag) > noteTagIndex;
-
-                if (isForNotes) {
-                  // Output pure HTML for the Quill Editor!
-                  // 🚀 FIXED: AI now outputs a reasonable default width (300px) instead of giant images!
-                  aiText = aiText.replace(fullTag, `<img src="${realImageUrl}" alt="${query}" width="300" style="border-radius: 8px;" />`);
-                } else {
-                  // Output Markdown for the Chat Bubble
-                  aiText = aiText.replace(fullTag, `![${query}](${realImageUrl})`);
-                }
-              } else {
-                aiText = aiText.replace(fullTag, `*(No image found for "${query}")*`);
-              }
-            } catch (err) {
-              aiText = aiText.replace(fullTag, `*(Image search failed)*`);
-            }
-          }
-        }
-
-        // 🚀 WEB INTERCEPTOR
-        const webRegex = /\[\s*SEARCH_WEB\s*:\s*(.*?)\s*\]/gi;
-        const webMatches = [...aiText.matchAll(webRegex)];
-
-        for (const match of webMatches) {
-          const fullTag = match[0];
-          const query = match[1] ? match[1].trim() : ""; 
-          
-          if (query) {
-            try {
-              // 🚀 FIX: gl=us&hl=en prevents Hindi results from appearing based on server location
-              const serpUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}&gl=us&hl=en`;
-              const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(serpUrl)}`;
-
-              const response = await fetch(proxyUrl);
-              const data = await response.json();
-
-              if (data.organic_results && data.organic_results.length > 0) {
-                let resMd = `\n\n**🌐 Live Search Results for "${query}":**\n\n`;
-                data.organic_results.slice(0, 3).forEach(r => {
-                  // 🚀 FIX: Convert YouTube links to FocusTube internal links
-                  let link = r.link;
-                  if (link.includes("youtube.com/watch?v=")) {
-                    const videoId = link.split("v=")[1].split("&")[0];
-                    link = `/video/${videoId}`;
-                  } else if (link.includes("youtu.be/")) {
-                    const videoId = link.split("youtu.be/")[1].split("?")[0];
-                    link = `/video/${videoId}`;
-                  }
-                  
-                  resMd += `* **[${r.title}](${link})**\n  *${r.snippet}*\n\n`;
-                });
-                aiText = aiText.replace(fullTag, resMd);
-              } else {
-                aiText = aiText.replace(fullTag, `*(No web results found)*`);
-              }
-            } catch (err) {
-              aiText = aiText.replace(fullTag, `*(Web search failed)*`);
-            }
-          }
-        }
-      } else {
-        aiText += "\n\n*(⚠️ Dev Note: SerpApi key not detected in .env!)*";
-      }
-
-      // Cleanup any accidental escaping
-      return aiText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
-      
-    } catch (error) {
-      console.warn(`Model ${modelName} failed:`, error.message);
+  try {
+    const payload = {
+      prompt,
+      history: chatHistory
+    };
+    
+    if (attachment && attachment.base64) {
+      const parts = attachment.base64.split(",");
+      const base64Data = parts.length > 1 ? parts[1] : parts[0];
+      payload.attachment = {
+        data: base64Data,
+        mimeType: attachment.mimeType
+      };
     }
+
+    const response = await fetch(`${GATEWAY_URL}/api/gemini`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': GATEWAY_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error("Gateway request failed");
+    
+    const data = await response.json();
+    let aiText = data.text || "No response from AI.";
+
+    // 🛑 INTERCEPTORS: WEB & IMAGES
+    // 🚀 SMART IMAGE INTERCEPTOR
+    const imageRegex = /\[\s*SEARCH_IMAGE\s*:\s*(.*?)\s*\]/gi;
+    const imageMatches = [...aiText.matchAll(imageRegex)];
+
+    for (const match of imageMatches) {
+      const fullTag = match[0]; 
+      const query = match[1] ? match[1].trim() : ""; 
+      
+      if (query) {
+        try {
+          const searchRes = await fetch(`${GATEWAY_URL}/api/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': GATEWAY_KEY
+            },
+            body: JSON.stringify({ q: query })
+          });
+          const searchData = await searchRes.json();
+
+          if (searchData.images_results && searchData.images_results.length > 0) {
+            const realImageUrl = searchData.images_results[0].original; 
+            
+            const noteTagIndex = aiText.indexOf("[UPDATED_NOTE]");
+            const isForNotes = noteTagIndex !== -1 && aiText.indexOf(fullTag) > noteTagIndex;
+
+            if (isForNotes) {
+              aiText = aiText.replace(fullTag, `<img src="${realImageUrl}" alt="${query}" width="300" style="border-radius: 8px;" />`);
+            } else {
+              aiText = aiText.replace(fullTag, `![${query}](${realImageUrl})`);
+            }
+          } else {
+            aiText = aiText.replace(fullTag, `*(No image found for "${query}")*`);
+          }
+        } catch (err) {
+          aiText = aiText.replace(fullTag, `*(Image search failed)*`);
+        }
+      }
+    }
+
+    // 🚀 WEB INTERCEPTOR
+    const webRegex = /\[\s*SEARCH_WEB\s*:\s*(.*?)\s*\]/gi;
+    const webMatches = [...aiText.matchAll(webRegex)];
+
+    for (const match of webMatches) {
+      const fullTag = match[0];
+      const query = match[1] ? match[1].trim() : ""; 
+      
+      if (query) {
+        try {
+          const searchRes = await fetch(`${GATEWAY_URL}/api/search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': GATEWAY_KEY
+            },
+            body: JSON.stringify({ q: query })
+          });
+          const searchData = await searchRes.json();
+
+          if (searchData.organic_results && searchData.organic_results.length > 0) {
+            let resMd = `\n\n**🌐 Live Search Results for "${query}":**\n\n`;
+            searchData.organic_results.slice(0, 3).forEach(r => {
+              let link = r.link;
+              if (link.includes("youtube.com/watch?v=")) {
+                const videoId = link.split("v=")[1].split("&")[0];
+                link = `/video/${videoId}`;
+              } else if (link.includes("youtu.be/")) {
+                const videoId = link.split("youtu.be/")[1].split("?")[0];
+                link = `/video/${videoId}`;
+              }
+              
+              resMd += `* **[${r.title}](${link})**\n  *${r.snippet}*\n\n`;
+            });
+            aiText = aiText.replace(fullTag, resMd);
+          } else {
+            aiText = aiText.replace(fullTag, `*(No web results found)*`);
+          }
+        } catch (err) {
+          aiText = aiText.replace(fullTag, `*(Web search failed)*`);
+        }
+      }
+    }
+
+    // Cleanup any accidental escaping
+    return aiText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
+    
+  } catch (error) {
+    console.error("AI Gateway Error:", error);
+    return "FocusAI is currently offline. My bad!";
   }
-  return "FocusAI is currently offline. My bad!";
 };

@@ -1,8 +1,7 @@
-import axios from 'axios';
 import { getUserPreferences } from '../utils/localization';
 
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const BASE_URL = 'https://www.googleapis.com/youtube/v3';
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL;
+const GATEWAY_KEY = import.meta.env.VITE_GATEWAY_KEY;
 
 // ----------------------------------------------------------------------
 // 🚨 MOCK DATA GENERATOR
@@ -49,41 +48,57 @@ export const formatDuration = (isoDuration) => {
 };
 
 // ----------------------------------------------------------------------
-// 🔍 CORE API FUNCTIONS
+// 🔍 CORE API FUNCTIONS (REFACTORED TO GATEWAY)
 // ----------------------------------------------------------------------
+
+const callGateway = async (endpoint, params) => {
+  try {
+    const response = await fetch(`${GATEWAY_URL}/api/youtube`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': GATEWAY_KEY
+      },
+      body: JSON.stringify({ endpoint, ...params })
+    });
+    if (!response.ok) throw new Error("Gateway failed");
+    return await response.json();
+  } catch (err) {
+    console.error("YouTube Gateway Error:", err);
+    throw err;
+  }
+};
 
 export const fetchVideoDetailsBatch = async (videoIds) => {
   if (!videoIds) return [];
   try {
-    const res = await axios.get(`${BASE_URL}/videos`, {
-      params: {
-        part: 'snippet,contentDetails,statistics,liveStreamingDetails',
-        id: videoIds,
-        key: API_KEY
-      }
+    const data = await callGateway('videos', {
+      part: 'snippet,contentDetails,statistics,liveStreamingDetails',
+      id: videoIds
     });
-    return res.data.items || [];
+    return data.items || [];
   } catch (err) {
-    console.error(err);
     return [];
   }
 };
 
 export const fetchVideoDetails = async (id) => {
   try {
-    const res = await axios.get(`${BASE_URL}/videos`, {
-      params: { part: 'snippet,statistics,contentDetails,liveStreamingDetails', id, key: API_KEY }
+    const data = await callGateway('videos', {
+      part: 'snippet,statistics,contentDetails,liveStreamingDetails',
+      id
     });
-    return res.data.items?.[0] || getMockVideos(1)[0];
+    return data.items?.[0] || getMockVideos(1)[0];
   } catch (err) { return getMockVideos(1)[0]; }
 };
 
 export const fetchChannelDetails = async (id) => {
   try {
-    const res = await axios.get(`${BASE_URL}/channels`, {
-      params: { part: 'snippet,statistics,brandingSettings', id, key: API_KEY }
+    const data = await callGateway('channels', {
+      part: 'snippet,statistics,brandingSettings',
+      id
     });
-    return res.data.items?.[0];
+    return data.items?.[0];
   } catch (err) {
     return {
       snippet: { title: "Mock Channel", thumbnails: { default: { url: "https://via.placeholder.com/80" } } },
@@ -94,31 +109,41 @@ export const fetchChannelDetails = async (id) => {
 
 export const fetchPlaylistItems = async (playlistId) => {
   try {
-    const res = await axios.get(`${BASE_URL}/playlistItems`, {
-      params: { part: 'snippet,contentDetails', playlistId, maxResults: 50, key: API_KEY }
+    const data = await callGateway('playlistItems', {
+      part: 'snippet,contentDetails',
+      playlistId,
+      maxResults: 50
     });
-    return res.data.items || [];
+    return data.items || [];
   } catch (err) { return getMockVideos(10); }
 };
 
 export const fetchChannelPlaylists = async (channelId, pageToken = "") => {
   try {
-    const res = await axios.get(`${BASE_URL}/playlists`, {
-      params: { part: 'snippet,contentDetails', channelId, maxResults: 20, pageToken, key: API_KEY }
+    const data = await callGateway('playlists', {
+      part: 'snippet,contentDetails',
+      channelId,
+      maxResults: 20,
+      pageToken
     });
-    return { items: res.data.items || [], nextPageToken: res.data.nextPageToken || "" };
+    return { items: data.items || [], nextPageToken: data.nextPageToken || "" };
   } catch (err) { return { items: [], nextPageToken: "" }; }
 };
 
 export const fetchChannelVideosWithDuration = async (channelId, pageToken = "") => {
   try {
-    const searchRes = await axios.get(`${BASE_URL}/search`, {
-      params: { part: 'snippet', channelId, maxResults: 50, order: 'date', type: 'video', pageToken, key: API_KEY }
+    const searchRes = await callGateway('search', {
+      part: 'snippet',
+      channelId,
+      maxResults: 50,
+      order: 'date',
+      type: 'video',
+      pageToken
     });
 
-    const itemsList = searchRes.data.items || [];
+    const itemsList = searchRes.items || [];
     const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
-    if (!videoIds) return { items: [], nextPageToken: searchRes.data.nextPageToken || "" };
+    if (!videoIds) return { items: [], nextPageToken: searchRes.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
 
@@ -132,31 +157,28 @@ export const fetchChannelVideosWithDuration = async (channelId, pageToken = "") 
         duration: formatDuration(detail?.contentDetails?.duration)
       };
     });
-    return { items, nextPageToken: searchRes.data.nextPageToken || "" };
+    return { items, nextPageToken: searchRes.nextPageToken || "" };
   } catch (err) { return { items: getMockVideos(20), nextPageToken: "" }; }
 };
 
 export const fetchTrendingVideos = async (token = '', categoryId = '0') => {
   try {
-    const res = await axios.get(`${BASE_URL}/videos`, {
-      params: {
-        part: 'snippet,contentDetails,statistics',
-        chart: 'mostPopular',
-        maxResults: 50,
-        regionCode: 'IN',
-        videoCategoryId: categoryId,
-        pageToken: token,
-        key: API_KEY
-      }
+    const data = await callGateway('videos', {
+      part: 'snippet,contentDetails,statistics',
+      chart: 'mostPopular',
+      maxResults: 50,
+      regionCode: 'IN',
+      videoCategoryId: categoryId,
+      pageToken: token
     });
 
-    const itemsList = res.data.items || [];
+    const itemsList = data.items || [];
     const items = itemsList.map(item => ({
       ...item,
       duration: formatDuration(item.contentDetails?.duration)
     }));
 
-    return { items, nextPageToken: res.data.nextPageToken || "" };
+    return { items, nextPageToken: data.nextPageToken || "" };
   } catch (err) {
     return { items: getMockVideos(20), nextPageToken: '' };
   }
@@ -173,7 +195,6 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
       maxResults: 40,
       type: 'video',
       pageToken: token,
-      key: API_KEY,
       safeSearch: "moderate",
       regionCode,
       relevanceLanguage: langCode
@@ -182,11 +203,11 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
     if (eventType) params.eventType = eventType;
     else params.videoDuration = duration;
 
-    const res = await axios.get(`${BASE_URL}/search`, { params });
-    const itemsList = res.data.items || [];
+    const data = await callGateway('search', params);
+    const itemsList = data.items || [];
     const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
 
-    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
+    if (!videoIds) return { items: [], nextPageToken: data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
     const uniqueChannelIds = [...new Set(itemsList.map(v => v.snippet.channelId))].filter(Boolean);
@@ -207,7 +228,7 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
       };
     });
 
-    return { items, nextPageToken: res.data.nextPageToken || "" };
+    return { items, nextPageToken: data.nextPageToken || "" };
   } catch (err) {
     const type = eventType === 'live' ? 'live' : (duration === 'short' ? 'short' : 'video');
     return { items: getMockVideos(20, type), nextPageToken: '' };
@@ -216,21 +237,18 @@ export const fetchSearchVideos = async (query, token = '', duration = 'any', eve
 
 export const fetchShorts = async (pageToken = "") => {
   try {
-    const res = await axios.get(`${BASE_URL}/search`, {
-      params: {
-        part: 'snippet',
-        type: 'video',
-        videoDuration: 'short',
-        maxResults: 12,
-        pageToken,
-        q: 'educational shorts | science shorts | coding shorts',
-        key: API_KEY
-      }
+    const data = await callGateway('search', {
+      part: 'snippet',
+      type: 'video',
+      videoDuration: 'short',
+      maxResults: 12,
+      pageToken,
+      q: 'educational shorts | science shorts | coding shorts'
     });
 
-    const itemsList = res.data.items || [];
+    const itemsList = data.items || [];
     const videoIds = itemsList.map(v => v.id.videoId).join(',');
-    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
+    if (!videoIds) return { items: [], nextPageToken: data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
 
@@ -242,7 +260,7 @@ export const fetchShorts = async (pageToken = "") => {
       };
     });
 
-    return { items, nextPageToken: res.data.nextPageToken || "" };
+    return { items, nextPageToken: data.nextPageToken || "" };
   } catch (error) {
     return { items: getMockVideos(12, 'short'), nextPageToken: "" };
   }
@@ -262,21 +280,27 @@ export const fetchChannelsByIds = async (channelIds) => {
   if (!channelIds || channelIds.length === 0) return [];
   try {
     const idsString = channelIds.slice(0, 50).join(',');
-    const res = await axios.get(`${BASE_URL}/channels`, {
-      params: { part: 'snippet,statistics', id: idsString, key: API_KEY }
+    const data = await callGateway('channels', {
+      part: 'snippet,statistics',
+      id: idsString
     });
-    return res.data.items || [];
+    return data.items || [];
   } catch (err) { return []; }
 };
 
 export const searchChannelSpecific = async (channelId, query, pageToken = "") => {
   try {
-    const res = await axios.get(`${BASE_URL}/search`, {
-      params: { part: 'snippet', channelId, q: query, maxResults: 20, type: 'video', pageToken, key: API_KEY }
+    const data = await callGateway('search', {
+      part: 'snippet',
+      channelId,
+      q: query,
+      maxResults: 20,
+      type: 'video',
+      pageToken
     });
-    const itemsList = res.data.items || [];
+    const itemsList = data.items || [];
     const videoIds = itemsList.map(v => v.id.videoId).filter(Boolean).join(',');
-    if (!videoIds) return { items: [], nextPageToken: res.data.nextPageToken || "" };
+    if (!videoIds) return { items: [], nextPageToken: data.nextPageToken || "" };
 
     const details = await fetchVideoDetailsBatch(videoIds);
     const items = itemsList.map(item => {
@@ -287,6 +311,6 @@ export const searchChannelSpecific = async (channelId, query, pageToken = "") =>
         views: detail?.statistics?.viewCount
       };
     });
-    return { items, nextPageToken: res.data.nextPageToken || "" };
+    return { items, nextPageToken: data.nextPageToken || "" };
   } catch (err) { return { items: [], nextPageToken: "" }; }
 };

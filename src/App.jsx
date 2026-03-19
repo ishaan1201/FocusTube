@@ -5,8 +5,6 @@ import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Home from "./pages/Home";
 import VideoPage from "./pages/VideoPage";
-import Admin from "./pages/Admin";
-import AdminLogin from "./pages/AdminLogin";
 import Vault from "./pages/Vault";
 import FeedbackPage from "./pages/FeedbackPage";
 import LandingPage from "./pages/LandingPage";
@@ -212,8 +210,6 @@ function AppShell({
             <Route path="/video/:id" element={<VideoPage />} />
             <Route path="/channel/:id" element={<ChannelPage />} />
             <Route path="/feedback" element={<FeedbackPage />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/vault" element={<Vault />} />
             <Route path="/history" element={<History />} />
             <Route path="/shorts/:id" element={<ShortsPlayer />} />

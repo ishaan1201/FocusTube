@@ -13,8 +13,6 @@
     "@capacitor/android": "^8.0.2",
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
-    "@google/genai": "^1.40.0",
-    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.99.2",
     "axios": "^1.13.4",
     "clsx": "^2.1.1",
