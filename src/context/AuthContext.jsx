@@ -1,95 +1,57 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "../services/supabase";
+import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '../services/supabase';
 
-const AuthContext = createContext();
+const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Initial Session Check
-    getSession();
+    // 1. Check for an active session on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-    // 2. Listen for Auth Changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        const currentUser = session?.user || null;
-        setUser(currentUser);
-        if (currentUser) {
-          fetchProfile(currentUser.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
+    // 2. Listen for login/logout events dynamically
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const getSession = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
+  // --- AUTHENTICATION METHODS ---
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin, // Redirects back to your app after Google login
       }
-      // 🚀 RESTORED: No more silent background onboarding. 
-      // Users must explicitly choose to Sign In or enter Guest Mode.
-    } catch (err) {
-      console.error("Session fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+    });
+    if (error) throw error;
   };
 
-  const fetchProfile = async (id) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Profile fetch error:", error);
-      } else {
-        setProfile(data);
+  const signInWithEmail = async (email) => {
+    // Uses Resend under the hood if configured in Supabase
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    });
+    if (error) throw error;
   };
 
-  const signUp = (email, password) =>
-    supabase.auth.signUp({ email, password });
-
-  const signIn = (email, password) =>
-    supabase.auth.signInWithPassword({ email, password });
-
-  const signInAnonymously = () =>
-    supabase.auth.signInAnonymously();
-
-  const signOut = () => {
-    setUser(null);
-    setProfile(null);
-    return supabase.auth.signOut();
-  };
-
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, profile, loading, signUp, signIn, signInAnonymously, signOut, fetchProfile, refreshProfile }}
-    >
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithEmail, signOut, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

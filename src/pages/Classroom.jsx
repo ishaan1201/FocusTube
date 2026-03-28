@@ -10,7 +10,7 @@ const CLASSES = [
   "JEE", "NEET"
 ];
 
-const SENIOR_SUBJECTS = ["All", "Physics", "Chemistry", "Math", "Biology", "Computer Science", "Accounts", "Business", "Economics"];
+const SENIOR_SUBJECTS = ["All", "Physics", "Chemistry", "Math", "Biology", "Computer Science", "Accounts", "Business", "Economics","English"];
 
 function Classroom() {
   const [selectedClass, setSelectedClass] = useState("Class 10");

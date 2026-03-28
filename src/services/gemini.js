@@ -158,6 +158,57 @@ export const getAIResponse = async (videoTitle, videoDescription, userQuery, cur
       }
     }
 
+    // 🎥 YOUTUBE TRANSCRIPT INTERCEPTOR
+    const videoRegex = /\[\s*READ_VIDEO\s*:\s*(.*?)\s*\]/gi;
+    const videoMatches = [...aiText.matchAll(videoRegex)];
+
+    for (const match of videoMatches) {
+      const fullTag = match[0];
+      const videoUrl = match[1] ? match[1].trim() : ""; 
+      
+      if (videoUrl) {
+        try {
+          // 1. Tell the user we are fetching it
+          aiText = aiText.replace(fullTag, `*(Cortex is watching the video...)*\n\n`);
+          
+          // 2. Extract the Video ID (Standard or youtu.be)
+          let videoId = "";
+          if (videoUrl.includes("v=")) videoId = videoUrl.split("v=")[1].split("&")[0];
+          else if (videoUrl.includes("youtu.be/")) videoId = videoUrl.split("youtu.be/")[1].split("?")[0];
+
+          if (!videoId) throw new Error("Invalid YouTube URL");
+
+          // 3. Ping your RapidAPI backend route! (Adjust the URL to match your actual route)
+          const transcriptRes = await fetch(`${GATEWAY_URL}/api/transcript?videoId=${videoId}`, {
+            headers: { 'x-api-key': GATEWAY_KEY }
+          });
+          
+          const transcriptData = await transcriptRes.json();
+          
+          if (transcriptData && transcriptData.transcript) {
+            // 4. We got the transcript! Secretly send it BACK to Gemini to get the real answer.
+            const secretPayload = {
+               prompt: `I just fetched the transcript for the video. Here it is: "${transcriptData.transcript.substring(0, 15000)}...". Based on this, answer my original question: ${userQuery}`,
+               history: chatHistory
+            };
+            
+            const secondPassRes = await fetch(`${GATEWAY_URL}/api/gemini`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': GATEWAY_KEY },
+              body: JSON.stringify(secretPayload)
+            });
+            
+            const secondPassData = await secondPassRes.json();
+            aiText = secondPassData.text; // Swap the temporary message with the actual brilliant summary!
+          } else {
+             aiText = aiText.replace(`*(Cortex is watching the video...)*\n\n`, `*(I couldn't pull the subtitles for this specific video, bro. It might not have closed captions!)*`);
+          }
+        } catch (err) {
+          aiText = aiText.replace(`*(Cortex is watching the video...)*\n\n`, `*(Error trying to read that video URL. Make sure it's a valid YouTube link!)*`);
+        }
+      }
+    }
+
     // Cleanup any accidental escaping
     return aiText.replace(/\\\[/g, '[').replace(/\\\]/g, ']');
     
